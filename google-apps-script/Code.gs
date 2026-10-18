@@ -17,6 +17,10 @@
  * Candles lit on the Wall of Remembrance are kept there too: a count for each name.
  *   Predictions    Predict the Score entries. After a match, use the menu
  *                  Gardens RFC > Find the prediction winner.
+ *
+ * Website content: the menu Gardens RFC > Set up website content tabs adds tabs the club edits to
+ * change the website (fixtures, announcements, birthdays, the newsletter and more; see CONTENT below).
+ * The website reads them through this same web app, and shows changes within a minute or two.
  */
 
 // Optional: an email address to tell when someone registers or sends a story. Leave "" for none.
@@ -81,7 +85,9 @@ function doPost(e) {
 }
 
 // Visiting the web app address in a browser shows this, which is handy for checking it is live.
-function doGet() {
+// With ?content=1 on the end it returns the website content from the content tabs instead.
+function doGet(e) {
+  if (e && e.parameter && e.parameter.content) return reply({ ok: true, content: websiteContent() });
   return reply({ ok: true, message: "Gardens RFC forms are connected." });
 }
 
@@ -232,7 +238,12 @@ function savePrediction(d) {
 
 // Adds the Gardens RFC menu to the sheet
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu("Gardens RFC").addItem("Find the prediction winner", "findWinner").addToUi();
+  SpreadsheetApp.getUi().createMenu("Gardens RFC")
+    .addItem("Find the prediction winner", "findWinner")
+    .addSeparator()
+    .addItem("Set up website content tabs", "setUpContent")
+    .addItem("Update the website now", "updateWebsiteNow")
+    .addToUi();
 }
 
 // Asks for the match and the final score, then lists the closest guesses (earliest entry wins a tie)
@@ -278,6 +289,418 @@ function lightCandle(d) {
     store.setProperty("candles", JSON.stringify(counts));
   }
   return { ok: true, counts: counts };
+}
+
+/* ---------- Website content ---------- */
+// The tabs the club edits to change the website. Each column: [heading, kind, help note, dropdown choices].
+// kind: "date", "time", "month", "birthday", "number", or empty for text.
+// A tab that does not exist yet leaves that part of the website as it is in data.js.
+const CONTENT_TZ = "Africa/Johannesburg";
+const CONTENT = [
+  { key: "fixtures", name: "Fixtures", columns: [
+    ["Date", "date", "The day of the match."],
+    ["Kick-off", "time", "South African time, for example 15:00."],
+    ["Team", "", "For example First team, Under 21 or Women."],
+    ["Opponent", "", "The other club."],
+    ["Venue", "", "Where the match is played."],
+    ["Gardens score", "number", "Fill in after the match. The match then moves to the results."],
+    ["Opponent score", "number", "Fill in after the match."]] },
+  { key: "announcements", name: "Announcements", columns: [
+    ["Date", "date", "When the notice was posted."],
+    ["Type", "", "Urgent notices go to the top.", ["Urgent", "Match", "Club", "Training", "Social"]],
+    ["Title", "", "A short heading."],
+    ["Message", "", "The notice itself."],
+    ["Show until", "date", "Optional. The notice disappears after this day."],
+    ["Button text", "", "Optional, for example Register now."],
+    ["Button link", "", "Optional. A page of the website, for example members.html, or a full address starting with https://"]] },
+  { key: "bereavements", name: "Bereavements", columns: [
+    ["Posted", "date", "The day the notice was posted."],
+    ["Name", "", "The name as the family wants it shown."],
+    ["Years", "", "For example 1944 - 2026."],
+    ["Photo", "", "Optional. A picture saved in the website's assets/img/notices folder, for example assets/img/notices/joan-de-monk.jpg (photos need the website to be published)."],
+    ["Message", "", "The club's words. Press Ctrl+Enter for a new paragraph."],
+    ["Memorial service", "", "Day, time and place. Leave empty to show To be confirmed."],
+    ["Funeral service", "", "Day, time and place. Leave empty to show To be confirmed."],
+    ["Show until", "date", "Optional. The notice disappears after this day."]] },
+  { key: "condolences", name: "Condolence messages", columns: [
+    ["Remembering", "", "The name exactly as in the Bereavements tab."],
+    ["From", "", "The name of the person who sent it. Ask them first, or use their first name only."],
+    ["Message", "", "Their words, for example from the comments on the club's Facebook post."]] },
+  { key: "birthdays", name: "Birthdays", columns: [
+    ["Name", "", "Ask each person before adding them (POPIA)."],
+    ["Birthday", "birthday", "Type the day and month, for example 14 March. The website never shows the year."],
+    ["Group", "", "", ["Executive", "Coach", "Player", "Supporter"]]] },
+  { key: "community", name: "Community", columns: [
+    ["Date", "date", "Past activities drop off the website by themselves."],
+    ["Time", "time", "Optional, for example 09:00."],
+    ["Title", "", ""],
+    ["Category", "", "", CATEGORIES],
+    ["Venue", "", ""],
+    ["Organiser", "", ""],
+    ["Details", "", ""]] },
+  { key: "newsletter", name: "Newsletter", columns: [
+    ["Month", "month", "The issue this belongs to. Type the first day of the month, for example 1 November 2026. The newest month shows first."],
+    ["Section", "", "Intro is the short welcome at the top of the issue (leave Title, Author and Role empty).",
+      ["Intro", "From the club", "Fan voices", "Sponsor news"]],
+    ["Title", "", ""],
+    ["Author", "", "For example Gardens RFC, or the name of the person who sent it."],
+    ["Role", "", "For example Club, Supporter or Sponsor news."],
+    ["Text", "", ""]] },
+  { key: "people", name: "Club people", columns: [
+    ["Group", "", "Which list on the website the person is in.", ["Executive", "Coaching team", "Supporters Club committee"]],
+    ["Role", "", "For example Chairperson or Head coach."],
+    ["Name", "", "Leave empty to show To be confirmed."],
+    ["About", "", "Optional. A sentence or two about the person."]] },
+  { key: "trips", name: "Supporters trips", columns: [
+    ["Date", "date", "Past trips drop off the website by themselves."],
+    ["Opponent", "", ""],
+    ["Venue", "", ""],
+    ["Bus leaves", "time", "For example 11:30."],
+    ["Pick-up point", "", ""],
+    ["Back at", "", "For example About 19:00."],
+    ["Price", "", "For example R120 return."],
+    ["Seats", "number", "Seats on the bus."],
+    ["Seats booked", "number", "Seats taken so far."]] },
+  { key: "functions", name: "Supporters functions", columns: [
+    ["Date", "date", "Past functions drop off the website by themselves."],
+    ["Time", "time", ""],
+    ["Title", "", "For example End-of-season braai."],
+    ["Venue", "", ""],
+    ["Price", "", "For example R100 a plate."],
+    ["Details", "", ""]] },
+  { key: "documents", name: "Documents", columns: [
+    ["Title", "", ""],
+    ["Category", "", "", ["Governance", "Codes of conduct", "Policies", "Player welfare", "Players", "Meetings"]],
+    ["Link", "", "Leave empty to show Being prepared. To publish a PDF: put it in Google Drive, Share > Anyone with the link, and paste the link here."],
+    ["Updated", "month", "Optional. Type the first day of the month, for example 1 October 2026."],
+    ["Summary", "", "One or two sentences about the document."]] },
+  { key: "winners", name: "Prediction winners", columns: [
+    ["Match", "", "Newest first, for example Gardens v Progress."],
+    ["Result", "", "For example 34 - 21."],
+    ["Winner", "", "First name and surname initial only, for example Thandi M."],
+    ["Their guess", "", "For example 30 - 20."]] },
+  { key: "settings", name: "Settings", columns: [
+    ["Setting", "", "Do not change the words in this column."],
+    ["Value", "", "Change these."],
+    ["What it does", "", ""]] }
+];
+
+// The rows of the Settings tab: [setting, where it goes on the website, kind, what it does]
+const SETTINGS = [
+  ["Predict the Score: on", "predict.on", "yesno", "Yes shows the Predict the Score game for the next match. No hides it."],
+  ["Predict the Score: prize", "predict.prize", "", "What the winner gets. Empty shows Prize to be announced."],
+  ["Predict the Score: sponsor", "predict.sponsor", "", "Shown as Presented by."],
+  ["Live stream: on", "live.on", "yesno", "Yes on match day shows the live stream on the home page. Set it back to No afterwards."],
+  ["Live stream: link", "live.url", "link", "A YouTube link, or a public Facebook Page video link."],
+  ["Live stream: YouTube channel id", "live.youtubeChannelId", "", "The club channel's id starting with UC. Used when the link is empty: YouTube then shows whatever the channel is streaming."],
+  ["Live stream: title", "live.title", "", "Optional. Empty uses the next fixture."],
+  ["Live stream: sponsor", "live.sponsor.name", "", "Shown as Live stream presented by ..."],
+  ["Live stream: sponsor website", "live.sponsor.url", "link", "Optional."],
+  ["Live stream: support link", "live.support.url", "link", "A payment or donation link for the Support the stream button. Empty hides the button."],
+  ["Players: contact name", "players.contactName", "", "Who new players speak to, on the Join as a player page."],
+  ["Players: contact role", "players.contactRole", "", "For example Club registrar."],
+  ["Players: WhatsApp number", "players.whatsapp", "phone", "The number for player enquiries, for example 073 407 9870."],
+  ["Players: email", "players.email", "", ""],
+  ["Players: training", "players.training", "", "For example Tuesdays and Thursdays, 17:30 at Rosedale."],
+  ["Players: pre-season", "players.preseason", "", "For example Pre-season training starts on 13 January 2027."],
+  ["Players: transfer cut-off", "players.transferCutoff", "", "For example The union's transfer cut-off for 2027 is 31 May."],
+  ["Players: fee for senior men", "fee:Senior men", "", "For example R600 a season."],
+  ["Players: fee for under 21", "fee:Under 21", "", ""],
+  ["Players: fee for women", "fee:Women", "", ""],
+  ["Supporters Club: WhatsApp number", "supporters.whatsapp", "phone", "The Supporters Club organiser's number."],
+  ["Supporters Club: membership", "supporters.membership", "", "For example R150 a year, family R300."],
+  ["Supporters Club: meetings", "supporters.meets", "", "For example First Sunday of the month at the clubhouse."]
+];
+
+// What the website showed when this script was written, used to fill the tabs the first time.
+// (Sample entries are left out: they disappear from the website once the tabs are set up.)
+const SEED = { "fixtures": [
+    [ "2026-10-31", "15:00", "First team", "Excelsiors RFC", "", "", "" ],
+    [ "2026-10-17", "15:00", "First team", "Harlequins Rugby Club", "", "", "" ],
+    [ "2026-10-10", "15:00", "First team", "Progress", "", 34, 21 ] ],
+  "announcements": [
+    [ "2026-10-14", "Match", "Harlequins on Saturday", "The first team plays Harlequins Rugby Club on Saturday 17 October. Kick-off is at 15:00. Come early and bring the family.", "2026-10-17", "Fixtures and results", "#fixtures" ],
+    [ "2026-10-14", "Club", "Member registration is open", "Players, supporters, juniors, veterans, coaches and volunteers can now register as Gardens RFC members online.", "", "Register now", "#members" ],
+    [ "2026-10-14", "Club", "Write for the November newsletter", "Stories for the November issue of Gardens Monthly close on 25 October. Fans, officials, players, parents and sponsors are all welcome.", "2026-10-25", "Contribute a story", "#newsletter" ] ],
+  "bereavements": [
+    [ "2026-10-18", "Joan de Monk", "1944 - 2026", "assets/img/notices/joan-de-monk.jpg", "It is with deep sadness that Gardens Rugby Football Club shares the passing of Joan de Monk.\n\nThe club sends its heartfelt condolences to the de Monk family. We keep the family in our thoughts and prayers during this difficult time.", "", "", "" ] ],
+  "condolences": [
+    [ "Joan de Monk", "Sharon Maarman", "Sag rus my auntie 🙏🙏🙏🙏" ],
+    [ "Joan de Monk", "Tercia Muller", "My sincere condolences to the Monk family." ],
+    [ "Joan de Monk", "Tercia Muller", "Sorry De Monk." ],
+    [ "Joan de Monk", "Catherine Josephs", "Sterkte Pieter 🙏" ],
+    [ "Joan de Monk", "Omar Samdaan", "Condolences to the bereave family and friends too" ] ],
+  "birthdays": [],
+  "community": [],
+  "newsletter": [
+    [ "2026-10-01", "Intro", "", "", "", "A win over Progress, Harlequins up next, and member registration is now open online. Welcome to the first issue of Gardens Monthly." ],
+    [ "2026-10-01", "From the club", "34 - 21 over Progress", "Gardens RFC", "Club", "The first team beat Progress 34 - 21 in our last outing. Thank you to everyone who came out to support the boys in green, white and red." ],
+    [ "2026-10-01", "From the club", "Harlequins next, Saturday 17 October", "Gardens RFC", "Club", "Next up is Harlequins Rugby Club on Saturday 17 October, kick-off 15:00. The countdown is on the site. Come early and bring the family." ],
+    [ "2026-10-01", "From the club", "Member registration is open", "Gardens RFC", "Club", "Players, supporters, juniors, veterans, coaches and volunteers can now register as Gardens RFC members on the website, in the Members area." ],
+    [ "2026-10-01", "Sponsor news", "Score Energy Drink on the jersey", "Gardens RFC", "Sponsor news", "Score Energy Drink is the official energy drink partner of Gardens RFC, and the Score name is on the Gardens jersey. Please support the people who support the club." ] ],
+  "people": [
+    [ "Executive", "President", "", "" ],
+    [ "Executive", "Vice-president", "", "" ],
+    [ "Executive", "Chairperson", "", "" ],
+    [ "Executive", "Vice-chairperson", "", "" ],
+    [ "Executive", "Secretary", "", "" ],
+    [ "Executive", "Treasurer", "", "" ],
+    [ "Executive", "Fixtures secretary", "", "" ],
+    [ "Executive", "Additional member", "", "" ],
+    [ "Coaching team", "Head coach", "", "" ],
+    [ "Coaching team", "Assistant coach", "", "" ],
+    [ "Coaching team", "Forwards coach", "", "" ],
+    [ "Coaching team", "Backs coach", "", "" ],
+    [ "Coaching team", "Strength and conditioning", "", "" ],
+    [ "Coaching team", "Team manager", "", "" ],
+    [ "Coaching team", "Physio and medical", "", "" ],
+    [ "Coaching team", "Junior coaching coordinator", "", "" ],
+    [ "Supporters Club committee", "Chairperson", "", "" ],
+    [ "Supporters Club committee", "Secretary", "", "" ],
+    [ "Supporters Club committee", "Treasurer", "", "" ],
+    [ "Supporters Club committee", "Transport coordinator", "", "" ],
+    [ "Supporters Club committee", "Functions coordinator", "", "" ] ],
+  "trips": [],
+  "functions": [],
+  "documents": [
+    [ "Club constitution", "Governance", "", "", "How Gardens RFC is run: membership, the executive committee, general meetings, elections and the club's finances." ],
+    [ "Membership fees and subscriptions", "Governance", "", "", "Fees for players, supporters, juniors and veterans, when they are due and how to pay." ],
+    [ "Code of conduct: players", "Codes of conduct", "", "", "What the club expects from every player at training, on match day, in the clubhouse and online." ],
+    [ "Code of conduct: supporters and parents", "Codes of conduct", "", "", "Behaviour in the stands, at home and away games, and on Supporters Club trips." ],
+    [ "Code of conduct: coaches and officials", "Codes of conduct", "", "", "Standards for everyone who coaches, manages or represents the club." ],
+    [ "Disciplinary procedure", "Policies", "", "", "How complaints and breaches of the codes of conduct are heard, and the right to appeal." ],
+    [ "Child protection and safeguarding policy", "Policies", "", "", "How the club keeps under-18 players and young supporters safe, and who to speak to." ],
+    [ "Privacy notice (POPIA)", "Policies", "privacy.html", "2026-10-01", "What personal information the club keeps, why, and how to ask to see or remove it." ],
+    [ "Social media and communications policy", "Policies", "", "", "Posting about the club, team news and match footage." ],
+    [ "Concussion and player welfare policy", "Player welfare", "", "", "Recognising concussion, removal from play and the return-to-play steps, in line with BokSmart." ],
+    [ "Player registration and transfer guidelines", "Players", "", "", "The full procedure for new players and players moving from another club." ],
+    [ "Annual general meeting minutes", "Meetings", "", "", "Minutes of the most recent AGM, including the election of the executive committee." ] ],
+  "winners": [],
+  "settings": { "predict.on": true, "predict.prize": "", "predict.sponsor": "Score Energy Drink", "live.on": false, "live.url": "", "live.youtubeChannelId": "", "live.title": "", "live.sponsor.name": "", "live.sponsor.url": "", "live.support.url": "", "players.contactName": "", "players.contactRole": "Club registrar", "players.whatsapp": "27734079870", "players.email": "", "players.training": "", "players.preseason": "", "players.transferCutoff": "", "fee:Senior men": "", "fee:Under 21": "", "fee:Women": "", "supporters.whatsapp": "27734079870", "supporters.membership": "", "supporters.meets": "" } };
+
+// Menu: Gardens RFC > Set up website content tabs. Adds any content tab that is missing; never changes existing ones.
+function setUpContent() {
+  const book = SpreadsheetApp.getActiveSpreadsheet();
+  book.setSpreadsheetTimeZone(CONTENT_TZ);
+  const added = [];
+  CONTENT.forEach(def => {
+    if (book.getSheetByName(def.name)) return;
+    const sheet = book.insertSheet(def.name);
+    const heads = def.columns.map(c => c[0]);
+    sheet.getRange(1, 1, 1, heads.length).setValues([heads])
+      .setFontWeight("bold").setBackground("#0f5a3a").setFontColor("#ffffff");
+    sheet.setFrozenRows(1);
+    def.columns.forEach((c, i) => {
+      const col = sheet.getRange(2, i + 1, 999, 1);
+      if (c[2]) sheet.getRange(1, i + 1).setNote(c[2]);
+      if (c[1] === "date") col.setNumberFormat("d mmm yyyy");
+      if (c[1] === "time") col.setNumberFormat("hh:mm");
+      if (c[1] === "month") col.setNumberFormat("mmmm yyyy");
+      if (c[1] === "birthday") col.setNumberFormat("d mmmm");
+      if (c[1] === "date" || c[1] === "month" || c[1] === "birthday")
+        col.setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false)
+          .setHelpText("Please type a date, for example 31 October 2026.").build());
+      if (c[1] === "number")
+        col.setDataValidation(SpreadsheetApp.newDataValidation().requireNumberBetween(0, 999).setAllowInvalid(false).build());
+      if (c[3]) col.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(c[3], true).setAllowInvalid(false).build());
+      if (!c[1]) col.setNumberFormat("@").setWrap(true);  // text stays exactly as typed
+    });
+    let rows;
+    if (def.key === "settings") {
+      rows = SETTINGS.map(s => {
+        const v = SEED.settings[s[1]];
+        return [s[0], s[2] === "yesno" ? (v ? "Yes" : "No") : String(v == null ? "" : v), s[3]];
+      });
+    } else {
+      rows = (SEED[def.key] || []).map(r => r.map(v => (v === null ? "" : v)));
+    }
+    // Dates become real dates; times like 15:00 are turned into times by the sheet itself
+    if (rows.length) sheet.getRange(2, 1, rows.length, heads.length)
+      .setValues(rows.map(r => r.map((v, i) => (v === "" ? "" : toCell(v, def.columns[i][1])))));
+    if (def.key === "settings") {
+      sheet.getRange(2, 1, SETTINGS.length, 1).setFontWeight("bold");
+      SETTINGS.forEach((s, i) => {
+        if (s[2] === "yesno") sheet.getRange(i + 2, 2).setDataValidation(
+          SpreadsheetApp.newDataValidation().requireValueInList(["Yes", "No"], true).setAllowInvalid(false).build());
+      });
+    }
+    sheet.autoResizeColumns(1, heads.length);
+    def.columns.forEach((c, i) => { if (!c[1] && sheet.getColumnWidth(i + 1) > 360) sheet.setColumnWidth(i + 1, 360); });
+    added.push(def.name);
+  });
+  clearContentCache();
+  SpreadsheetApp.getUi().alert(added.length
+    ? "Added these tabs: " + added.join(", ") + ".\n\nThe website now shows what is in them. Changes appear within a minute or two."
+    : "All the website content tabs are already there.");
+}
+
+// The first-time values as real dates and times in the sheet
+function toCell(v, kind) {
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v));
+  if (d && (kind === "date" || kind === "month" || kind === "birthday")) return new Date(+d[1], +d[2] - 1, +d[3], 12);
+  return v;
+}
+
+// Menu: Gardens RFC > Update the website now. Normally changes show within a minute or two by themselves.
+function updateWebsiteNow() {
+  clearContentCache();
+  SpreadsheetApp.getUi().alert("Done. The website shows the latest content within about a minute.");
+}
+
+// Any edit to the sheet (a content tab, or approving a memory) lets the website pick up the change straight away
+function onEdit() {
+  clearContentCache();
+}
+
+function clearContentCache() {
+  CacheService.getScriptCache().remove("content");
+}
+
+// Everything the website needs from the content tabs, in the same shape as data.js
+function websiteContent() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get("content");
+  if (hit) return JSON.parse(hit);
+  const book = SpreadsheetApp.getActiveSpreadsheet();
+  const tz = book.getSpreadsheetTimeZone() || CONTENT_TZ;
+  const out = {};
+  const read = key => {
+    const def = CONTENT.filter(d => d.key === key)[0];
+    const sheet = book.getSheetByName(def.name);
+    if (!sheet) return null;  // not set up: the website keeps what data.js has
+    const last = sheet.getLastRow();
+    if (last < 2) return [];
+    const width = sheet.getLastColumn();
+    const range = sheet.getRange(1, 1, last, width);
+    const values = range.getValues(), shown = range.getDisplayValues();
+    const heads = values[0].map(h => String(h).trim());
+    const rows = [];
+    for (let r = 1; r < values.length; r++) {
+      if (values[r].every(v => v === "" || v === null)) continue;
+      const row = {};
+      def.columns.forEach(c => {
+        const i = heads.indexOf(c[0]);
+        row[c[0]] = i < 0 ? "" : cellValue(values[r][i], shown[r][i], c[1], tz);
+      });
+      rows.push(row);
+    }
+    return rows;
+  };
+  const set = (key, fn) => { const rows = read(key); if (rows) out[key] = fn(rows); };
+  const has = (...v) => v.every(x => x !== "");
+
+  set("fixtures", rows => rows.filter(r => has(r["Date"], r["Opponent"])).map(r => {
+    const f = { date: r["Date"], time: r["Kick-off"], team: r["Team"], opponent: r["Opponent"], venue: r["Venue"] };
+    if (typeof r["Gardens score"] === "number" && typeof r["Opponent score"] === "number")
+      f.score = { us: r["Gardens score"], them: r["Opponent score"] };
+    return f;
+  }));
+  set("announcements", rows => rows.filter(r => has(r["Title"])).map(r => ({
+    date: r["Date"], tag: r["Type"] || "Club", title: r["Title"], body: r["Message"], until: r["Show until"],
+    linkText: r["Button text"], link: cleanLink(r["Button link"]) })));
+  set("bereavements", rows => rows.filter(r => has(r["Name"])).map(r => ({
+    date: r["Posted"], name: r["Name"], years: r["Years"], message: r["Message"], until: r["Show until"],
+    photo: /^assets\/img\/[\w\/ .-]+\.(jpe?g|png|webp)$/i.test(r["Photo"]) ? r["Photo"] : "",
+    services: [{ name: "Memorial service", details: r["Memorial service"] }, { name: "Funeral service", details: r["Funeral service"] }] })));
+  const condolences = read("condolences");
+  if (out.bereavements && condolences) out.bereavements.forEach(b => {
+    b.messages = condolences.filter(r => r["Remembering"] === b.name && has(r["Message"])).map(r => ({ name: r["From"], text: r["Message"] }));
+  });
+  set("birthdays", rows => rows.filter(r => has(r["Name"], r["Birthday"])).map(r => ({
+    name: r["Name"], birthday: r["Birthday"], group: r["Group"] || "Supporter" })));
+  set("community", rows => rows.filter(r => has(r["Date"], r["Title"])).map(r => ({
+    date: r["Date"], time: r["Time"], title: r["Title"], category: r["Category"] || "Community", venue: r["Venue"],
+    organiser: r["Organiser"], details: r["Details"] })));
+  set("newsletter", rows => {
+    const KEYS = { "From the club": "club", "Fan voices": "fans", "Sponsor news": "sponsors" };
+    const issues = {};
+    rows.filter(r => r["Month"]).forEach(r => {
+      const iss = issues[r["Month"]] = issues[r["Month"]] || { month: r["Month"], intro: "", items: [] };
+      if (r["Section"] === "Intro") iss.intro = r["Text"];
+      else if (KEYS[r["Section"]] && has(r["Title"]))
+        iss.items.push({ section: KEYS[r["Section"]], title: r["Title"], author: r["Author"], role: r["Role"], body: r["Text"] });
+    });
+    return Object.keys(issues).sort().reverse().map(m => issues[m]);
+  });
+  const people = read("people");
+  if (people) {
+    const group = g => people.filter(r => r["Group"] === g && has(r["Role"]))
+      .map(r => ({ role: r["Role"], name: r["Name"], bio: r["About"] }));
+    out.executive = group("Executive");
+    out.coaches = group("Coaching team");
+    out.supporters = { committee: group("Supporters Club committee") };
+  }
+  set("trips", rows => rows.filter(r => has(r["Date"])).map(r => ({
+    date: r["Date"], opponent: r["Opponent"], venue: r["Venue"], departs: r["Bus leaves"], from: r["Pick-up point"],
+    returns: r["Back at"], price: r["Price"], seats: num(r["Seats"]), booked: num(r["Seats booked"]) })));
+  if (out.trips) { out.supporters = out.supporters || {}; out.supporters.trips = out.trips; delete out.trips; }
+  set("functions", rows => rows.filter(r => has(r["Date"], r["Title"])).map(r => ({
+    date: r["Date"], time: r["Time"], title: r["Title"], venue: r["Venue"], price: r["Price"], details: r["Details"] })));
+  if (out.functions) { out.supporters = out.supporters || {}; out.supporters.functions = out.functions; delete out.functions; }
+  set("documents", rows => rows.filter(r => has(r["Title"])).map(r => ({
+    title: r["Title"], category: r["Category"] || "Policies", file: cleanLink(r["Link"]), updated: r["Updated"], summary: r["Summary"] })));
+  set("winners", rows => rows.filter(r => has(r["Winner"])).map(r => ({
+    match: r["Match"], result: r["Result"], name: r["Winner"], guess: r["Their guess"] })));
+  if (out.winners) { out.predict = { winners: out.winners }; delete out.winners; }
+
+  const settings = read("settings");
+  if (settings) {
+    const fees = {};
+    settings.forEach(r => {
+      const def = SETTINGS.filter(s => s[0] === r["Setting"])[0];
+      if (!def) return;
+      let v = String(r["Value"]).trim();
+      if (def[2] === "yesno") v = /^(yes|ja|true|on)$/i.test(v);
+      if (def[2] === "link") v = cleanLink(v);
+      if (def[2] === "phone") { v = v.replace(/\D/g, ""); if (v.charAt(0) === "0") v = "27" + v.slice(1); }
+      if (def[1].indexOf("fee:") === 0) { fees[def[1].slice(4)] = v; return; }
+      const path = def[1].split(".");
+      let at = out;
+      path.slice(0, -1).forEach(p => { at = at[p] = at[p] || {}; });
+      at[path[path.length - 1]] = v;
+    });
+    if (Object.keys(fees).length) {
+      out.players = out.players || {};
+      out.players.fees = Object.keys(fees).map(label => ({ label: label, amount: fees[label] }));
+    }
+  }
+
+  // Approved memories from the Contributions tab: the name of the person who sent it and the words only
+  const contrib = book.getSheetByName(SHEETS.contributions.name);
+  if (contrib && contrib.getLastRow() > 1) {
+    const rows = contrib.getRange(2, 1, contrib.getLastRow() - 1, SHEETS.contributions.columns.length).getValues();
+    const col = name => SHEETS.contributions.columns.indexOf(name);
+    out.memories = rows.filter(r => String(r[col("Type")]) === "Memory" && /^approved$/i.test(String(r[col("Status")]).trim())
+        && String(r[col("Story or details")]).trim())
+      .map(r => ({ memorial: String(r[col("Memorial")]), name: String(r[col("Name")]), text: String(r[col("Story or details")]).trim() }));
+  }
+
+  try { cache.put("content", JSON.stringify(out), 300); } catch (err) { /* too large to cache: read fresh each time */ }
+  return out;
+}
+
+// A cell as the website wants it: dates as 2026-10-31, months as 2026-10, birthdays as 03-14, times as 15:00
+function cellValue(v, shown, kind, tz) {
+  if (kind === "date" || kind === "month" || kind === "birthday") {
+    if (!(v instanceof Date)) return "";
+    return Utilities.formatDate(v, tz, kind === "date" ? "yyyy-MM-dd" : kind === "month" ? "yyyy-MM" : "MM-dd");
+  }
+  if (kind === "time") {
+    const m = /^(\d{1,2}):(\d{2})/.exec(String(shown).trim());  // the time as the sheet shows it
+    return m ? ("0" + m[1]).slice(-2) + ":" + m[2] : "";
+  }
+  if (kind === "number") return typeof v === "number" ? v : "";
+  return v instanceof Date ? String(shown).trim() : String(v).trim();
+}
+
+function num(v) {
+  return typeof v === "number" ? v : 0;
+}
+
+// Only links to the website's own pages or to normal web addresses
+function cleanLink(v) {
+  const s = String(v || "").trim();
+  return /^(https?:\/\/|mailto:|#|[\w-]+\.html([#?].*)?$|assets\/)/i.test(s) ? s : "";
 }
 
 /* ---------- Helpers ---------- */

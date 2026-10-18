@@ -1041,3 +1041,69 @@ nav a.is-current, .dd-btn.is-current { border-bottom-color: var(--gold); }
 /* Online, before the Google Sheet is set up: the note at the top of each form (assets/js/send.js) */
 .forms-soon { max-width: 46rem; margin: 0 0 var(--s2); padding: .8rem 1rem; border-left: 5px solid var(--gold); background: rgba(255, 198, 43, .16); font-weight: 600; }
 .forms-soon a { color: inherit; font-weight: 700; }
+
+/* Bereavement notice in Announcements: quiet club green, the photo in an arch with the red and white
+   edge of the club's printed notices, and the service details as they are confirmed */
+.ann-memory { grid-column: 1 / -1; color: var(--jersey); border-top: 3px solid var(--gold); background: var(--leaf-deep); }
+.ann-memory .ann-tag { --ac: transparent; color: var(--jersey); box-shadow: 0 0 0 2px rgba(245, 246, 241, .7) inset; }
+.ann-memory .ann-top time { color: rgba(245, 246, 241, .8); }
+.memory { display: grid; grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr); gap: var(--s3); align-items: start; margin-top: .4rem; }
+.memory-photo { width: 100%; aspect-ratio: 35 / 40; object-fit: cover; object-position: 50% 20%; background: #fff;
+  border-radius: 999px 999px 4px 4px; border: 4px solid #fff; box-shadow: 0 0 0 4px var(--red); }
+.memory-text { max-width: 60ch; }
+.memory-lead { margin: 0; font-style: italic; color: rgba(245, 246, 241, .85); }
+.ann .memory h3 { margin: .1rem 0 .2rem; font-size: clamp(2rem, 4.5vw, 2.8rem); color: var(--gold); }
+.memory-years { margin: 0 0 var(--s2); font: 800 1.25rem/1 var(--display); letter-spacing: .06em; color: #fff; }
+.ann-memory .memory-text p { flex: none; color: rgba(245, 246, 241, .9); }
+.memory-services { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: .75rem; margin: var(--s2) 0 0; }
+.memory-services div { padding: .75rem 1rem; border-left: 3px solid var(--gold); background: rgba(255, 255, 255, .06); }
+.memory-services dt { font: 800 1.15rem/1.1 var(--display); color: #fff; }
+.memory-services dd { margin: .25rem 0 0; }
+.memory-services dd.tbc { font-style: italic; color: rgba(245, 246, 241, .75); }
+.ann-memory .memory-note { margin: .8rem 0 0; font-size: .95rem; color: rgba(245, 246, 241, .7); }
+/* Condolence messages: one at a time, crossfading in the same place so nothing below moves */
+.memory-messages { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid rgba(245, 246, 241, .18); }
+.memory-messages h4 { margin: 0 0 .8rem; font-size: 1.25rem; color: #fff; }
+.memory-reel { list-style: none; margin: 0; padding: 0; display: grid; }
+.memory-reel li { grid-area: 1 / 1; opacity: 0; transition: opacity .9s ease; padding-left: 1.1rem; border-left: 3px solid var(--gold); }
+.memory-reel li.is-on { opacity: 1; }
+.memory-reel blockquote { margin: 0; }
+.ann-memory .memory-reel blockquote p { margin: 0; max-width: 46ch; flex: none; font: italic 400 clamp(1.25rem, 2.6vw, 1.6rem)/1.4 var(--body); color: var(--jersey); }
+.ann-memory .memory-from { margin: .5rem 0 0; flex: none; font: 800 1.05rem/1.2 var(--display); letter-spacing: .04em; color: var(--gold); }
+.memory-reel.is-static { gap: 1.1rem; }
+.memory-reel.is-static li { grid-area: auto; opacity: 1; }
+.memory-reel-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 1rem; }
+.memory-reel-controls[hidden] { display: none; }
+.memory-reel-controls button { padding: .35rem .8rem; border: 2px solid rgba(245, 246, 241, .45); background: transparent; color: var(--jersey);
+  font: 800 .95rem/1.2 var(--display); text-transform: uppercase; letter-spacing: .05em; cursor: pointer; }
+.memory-reel-controls button:hover { border-color: var(--jersey); }
+.memory-pause { margin-left: auto; }
+.memory-count { min-width: 4.5em; text-align: center; font-size: .95rem; color: rgba(245, 246, 241, .75); font-variant-numeric: tabular-nums; }
+@media (max-width: 34rem) {
+  .memory { grid-template-columns: 1fr; }
+  .memory-photo { width: 10rem; }
+}
+
+/* First-visit crest intro on the home page (assets/js/intro.js). Nothing here applies unless the script
+   adds the overlay, so without JavaScript there is no intro. The curtain lifts with the jersey hoops on
+   its lower edge, and the hero's own entrance waits for it (html.intro-playing). */
+.intro { position: fixed; inset: 0; z-index: 10000; display: grid; place-content: center; justify-items: center; gap: .85rem;
+  padding: 16px; background: var(--leaf-deep); color: var(--jersey); text-align: center; cursor: pointer;
+  transition: transform .5s cubic-bezier(.7, 0, .25, 1); }
+.intro::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 24px;
+  background: linear-gradient(var(--leaf) 0 8px, var(--jersey) 8px 16px, var(--red) 16px 24px); }
+.intro-lift { transform: translateY(calc(-100% - 24px)); }
+.intro p { margin: 0; max-width: none; }
+.intro-crest { width: clamp(96px, 26vw, 150px); height: auto; margin-bottom: .4rem; filter: drop-shadow(0 10px 24px rgba(0, 0, 0, .35));
+  animation: intro-crest .6s cubic-bezier(.2, .8, .2, 1) both; }
+.intro-name { font: 900 clamp(2.2rem, 9vw, 3.4rem)/1 var(--display); text-transform: uppercase; letter-spacing: .02em;
+  animation: intro-text .5s .2s cubic-bezier(.2, .8, .2, 1) both; }
+.intro-since { font: italic 400 clamp(1.05rem, 3.4vw, 1.25rem)/1.2 var(--body); color: var(--gold);
+  animation: intro-text .5s .3s cubic-bezier(.2, .8, .2, 1) both; }
+.intro-skip { position: fixed; z-index: 10001; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  padding: .5rem 1.1rem; border: 2px solid rgba(245, 246, 241, .6); background: transparent; color: var(--jersey);
+  font: 800 1.05rem var(--display); text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
+.intro-skip:hover { border-color: var(--jersey); background: rgba(245, 246, 241, .1); }
+@keyframes intro-crest { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: none; } }
+@keyframes intro-text { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.intro-playing .hero, .intro-playing .hero * { animation-play-state: paused !important; }

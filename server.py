@@ -18,6 +18,8 @@ The website posts JSON to:
   POST /api/visit           visitor counter (adds one, returns the new count)
   POST /api/candles         Wall of Remembrance candles: {"name": ...} lights one for that person;
                             either way it returns the number lit for everyone on the wall
+  GET  /api/content         the website content from the club's Google Sheet (when data.js has
+                            backend.googleScriptUrl), like functions/api/content.js does online
 The club's future back end only needs to accept the same requests.
 """
 import argparse
@@ -29,6 +31,7 @@ import re
 import secrets
 import sqlite3
 import sys
+import urllib.request
 from datetime import date, datetime, timezone
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -250,7 +253,29 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_content(self):
+        """The Google Sheet's content tabs as a script, so local tests show what the live site shows."""
+        body = "window.GARDENS_CONTENT = null;"
+        m = re.search(r'googleScriptUrl:\s*"([^"]+)"', (ROOT / "assets" / "js" / "data.js").read_text(encoding="utf-8"))
+        if m:
+            url = m.group(1) + ("&" if "?" in m.group(1) else "?") + "content=1"
+            try:
+                with urllib.request.urlopen(url, timeout=10) as r:
+                    out = json.loads(r.read().decode("utf-8"))
+                if out.get("ok") and isinstance(out.get("content"), dict):
+                    body = "window.GARDENS_CONTENT = " + json.dumps(out["content"]) + ";"
+            except (OSError, ValueError) as e:
+                print(f"Could not read the Google Sheet content ({e}); showing data.js only.")
+        data = body.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/javascript; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_GET(self):
+        if self.path.split("?")[0] == "/api/content":
+            return self.send_content()
         # Never serve the database, exports or server code (checked on the decoded path)
         target = Path(self.translate_path(self.path)).resolve()
         name = target.name.lower()

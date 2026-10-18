@@ -1,6 +1,10 @@
 /* Gardens RFC content data.
-   Edit this file to add fixtures and photos. Later this will be replaced by
-   the club administration back end. */
+   Once the club's Google Sheet is connected (backend.googleScriptUrl below) and its content tabs are set
+   up, the Sheet decides fixtures, announcements, birthdays, community activities, the newsletter, club
+   people, Supporters Club trips and functions, documents, prediction winners, the settings and approved
+   memories: edit those in the Sheet, not here (assets/js/content.js puts them over this file).
+   Everything else (photos, albums, sponsors, adverts, videos, memorial pages) is still edited here.
+   This file is also what the site shows if the Sheet cannot be reached. */
 
 window.GARDENS = {
   // Fixtures and results. Times are South African time.
@@ -68,6 +72,24 @@ window.GARDENS = {
     { date: "2026-10-14", tag: "Club", title: "Write for the November newsletter",
       body: "Stories for the November issue of Gardens Monthly close on 25 October. Fans, officials, players, parents and sponsors are all welcome.",
       until: "2026-10-25", link: "#newsletter", linkText: "Contribute a story" }
+  ],
+
+  // Bereavement notices, shown in Announcements after any urgent notices.
+  //   photo: a picture in assets/img/notices/ (optional). message: blank lines start a new paragraph.
+  //   services: each service's details, for example "Saturday 7 November, 10:00 at St Mary's, Rosedale".
+  //             Empty details show "To be confirmed". until (optional): hide the notice after that date.
+  //   messages: condolence messages from members and supporters, shown one at a time under the notice.
+  bereavements: [
+    { date: "2026-10-18", name: "Joan de Monk", years: "1944 - 2026", photo: "assets/img/notices/joan-de-monk.jpg",
+      message: "It is with deep sadness that Gardens Rugby Football Club shares the passing of Joan de Monk.\n\nThe club sends its heartfelt condolences to the de Monk family. We keep the family in our thoughts and prayers during this difficult time.",
+      services: [{ name: "Memorial service", details: "" }, { name: "Funeral service", details: "" }], until: "",
+      messages: [
+        { name: "Sharon Maarman", text: "Sag rus my auntie 🙏🙏🙏🙏" },
+        { name: "Tercia Muller", text: "My sincere condolences to the Monk family." },
+        { name: "Tercia Muller", text: "Sorry De Monk." },
+        { name: "Catherine Josephs", text: "Sterkte Pieter 🙏" },
+        { name: "Omar Samdaan", text: "Condolences to the bereave family and friends too" }
+      ] }
   ],
 
   // Birthdays. Everyone with a birthday this month is congratulated in Announcements, and in the

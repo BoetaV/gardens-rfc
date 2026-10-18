@@ -2,7 +2,7 @@
 
 Two free services:
 
-- **Google Sheets** stores what people send through the website: member registrations, newsletter stories, community activities and newsletter sign-ups.
+- **Google Sheets** stores what people send through the website (member registrations, newsletter stories, community activities, newsletter sign-ups and memories), and is where the club changes the website's content: fixtures and results, announcements, birthdays, the newsletter, club people, Supporters Club trips and functions, documents and settings.
 - **Cloudflare Pages** hosts the website itself.
 
 Allow about 30 minutes the first time. Afterwards, updating the site takes about two minutes.
@@ -33,11 +33,15 @@ Allow about 30 minutes the first time. Afterwards, updating the site takes about
    },
    ```
 
+10. Back in the sheet, reload the page. Open the new menu **Gardens RFC > Set up website content tabs** (Google asks for permission once; accept it as in step 6). It adds the content tabs, already filled with what the website shows today. From then on the website shows what is in them.
+
 The **Members**, **Contributions**, **Subscribers** and **Predictions** tabs appear in the sheet the first time someone uses each form.
+
+**The content tabs:** Fixtures, Announcements, Birthdays, Community, Newsletter, Club people, Supporters trips, Supporters functions, Documents, Prediction winners and Settings. Hover over a column heading to see what goes in it. Changes show on the website within a minute or two. Never rename a tab or a column heading, and never change the words in the first column of **Settings**: the website finds things by those names. If Google cannot be reached, the website shows the content in `data.js` instead.
 
 **If you change the script later:** use **Deploy > Manage deployments**, click the pencil icon, choose **Version: New version**, then **Deploy**. The web address stays the same.
 
-**Predict the Score:** if the sheet was set up before the game was added, paste the new `Code.gs` in and deploy a new version as above, or predictions will not save. After a match, reload the sheet and use the menu **Gardens RFC > Find the prediction winner**: pick the match, type the final score (for example `24-17`), and it lists the closest guesses with their cell numbers. Then add the winner's first name and surname initial to `predict.winners` in `data.js`.
+**Predict the Score:** if the sheet was set up before the game was added, paste the new `Code.gs` in and deploy a new version as above, or predictions will not save. After a match, reload the sheet and use the menu **Gardens RFC > Find the prediction winner**: pick the match, type the final score (for example `24-17`), and it lists the closest guesses with their cell numbers. Then add the winner's first name and surname initial to the **Prediction winners** tab.
 
 **Memories on the Oom Charles page:** visitors can send a memory and up to 5 photos. They arrive in the **Contributions** tab with Type `Memory` and Status `pending`. The photos are saved in a private Google Drive folder called **Gardens RFC memorial photos**, with links in the **Photos** column. Because the script saves to Drive, Google asks for permission again the first time you deploy this version. Accept it as in step 6.
 
@@ -45,14 +49,22 @@ The **Members**, **Contributions**, **Subscribers** and **Predictions** tabs app
 
 ## Part 2: Put the website on Cloudflare
 
-1. Double-click **`Prepare upload for Cloudflare.bat`**. It makes a fresh `deploy` folder holding only the public website, and opens it. Private files (`members.db`, `server.py`, the zip and the original `videos` folder) are left out.
+The website is live at **www.gardensrfc.com** (Cloudflare Pages project `gardens-rfc`). Content in the Google Sheet updates by itself; only photos, videos, sponsors, adverts and design changes need the website to be published again.
+
+**To publish:** double-click **`Publish website.bat`**. It makes a fresh `deploy` folder holding only the public website (private files such as `members.db`, `server.py`, the zip and the original `videos` folder are left out) and puts it online. The first time on a computer, Cloudflare opens in the browser and asks for permission: sign in to the club's Cloudflare account and click **Allow**. It needs Python and Node.js on the computer.
+
+> Do not drag the `deploy` folder onto the Cloudflare dashboard any more. That upload leaves out `functions/api/content.js`, the part that brings in the Google Sheet content, so the website would fall back to `data.js`.
+
+The steps below are how the project was first created, kept for reference.
+
+1. Double-click **`Prepare upload for Cloudflare.bat`**. It makes a fresh `deploy` folder holding only the public website, and opens it.
    - A warning that `googleScriptUrl` is empty means Part 1, step 9 is not done yet.
 2. Go to **dash.cloudflare.com** and create a free account, or sign in.
 3. Open **Workers & Pages** and click **Create**. On the **Pages** tab, choose **Upload assets** (also called Direct Upload).
 4. Name the project, for example `gardens-rfc`. This becomes the address: **gardens-rfc.pages.dev**.
 5. Drag the **`deploy`** folder onto the upload box and click **Deploy site**.
 
-**To update the site later:** double-click `Prepare upload for Cloudflare.bat` again. In Cloudflare, open the project, click **Create deployment** (or **Upload assets** for a new version), and drag in the new `deploy` folder.
+**To update the site later:** double-click `Publish website.bat` (see above).
 
 **Own domain (optional):** to use an address such as `gardensrfc.co.za`, buy the domain from any South African registrar (there is a yearly fee). Then open the project in Cloudflare, go to **Custom domains**, and follow the steps.
 
@@ -71,12 +83,13 @@ The **Members**, **Contributions**, **Subscribers** and **Predictions** tabs app
 
 | To… | Do this |
 |---|---|
-| Add photos to an album | Copy them into the album's folder in `assets/img` (for example `Oom Charles`), then prepare and upload the site again. |
-| Post fixtures, results, announcements, coaches, live streams | Edit `assets/js/data.js`, then prepare and upload again. |
+| Post fixtures, results, announcements, birthdays, club people, Supporters Club trips and functions, documents | Edit the tab of that name in the Google Sheet. The website updates within a minute or two. |
+| Switch the live stream or Predict the Score on or off, change the prize or player and Supporters Club details | Edit the **Settings** tab in the Google Sheet. |
+| Add photos to an album | Copy them into the album's folder in `assets/img` (for example `Oom Charles`), then double-click `Publish website.bat`. |
 | See registrations and stories | Open the Google Sheet. |
-| Approve a story or activity | Change its **Status** in the Contributions tab to `approved`, and add it to `newsletter` or `community` in `data.js`. |
-| Approve a memory for Oom Charles | Change its **Status** to `approved`. Add the words to `memories` under `oom-charles` in `data.js`, for example `{ name: "Jan Smith", text: "He never missed a home game." }`. Download the approved photos from the Drive folder into `assets/img/Oom Charles`. Then prepare and upload the site again. |
-| Add birthdays | Add each person to `birthdays` in `data.js`, for example `{ name: "Jan Smith", birthday: "03-14", group: "Player" }` (month, then day). They are congratulated in Announcements and Gardens Monthly during their month. Only the day and month show, never the year. Ask each person first, and delete the example entries. |
+| Approve a story or activity | Change its **Status** in the Contributions tab to `approved`, then copy it into the **Newsletter** or **Community** tab. |
+| Approve a memory (Oom Charles or the Wall of Remembrance) | Change its **Status** in the Contributions tab to `approved`. The words appear on the memorial page by themselves. To show the photos sent with it, download the approved photos from the Drive folder into the memorial's folder in `assets/img` (for example `Oom Charles`), then double-click `Publish website.bat`. |
+| Add birthdays | Add a row to the **Birthdays** tab: the name, the day and month (for example 14 March) and the group. They are congratulated in Announcements and Gardens Monthly during their month. Only the day and month show, never the year. Ask each person first. |
 | Add someone to the Wall of Remembrance | Copy their photo or funeral notice into `assets/img/memorial`. It shows under "Together" straight away. To give them their own card, add them to `people` under `memorial` in `data.js`, for example `{ name: "Jan Smith", years: "1950 - 2026", photos: ["the-file-name.jpg"] }`. Memories sent from the Wall of Remembrance show "(Wall of Remembrance)" in the Memorial column. Candles lit on the wall are counted for each name in the Apps Script's own storage (after updating `Code.gs`, deploy a new version: Deploy > Manage deployments > Edit > New version). |
 | Change the memorial music | Copy an MP3 the club is allowed to use into `assets/audio`, then change `music` under `oom-charles` in `data.js`. |
 | Test changes before uploading | Double-click **`Start website (local test).bat`**. The site opens on this computer. |

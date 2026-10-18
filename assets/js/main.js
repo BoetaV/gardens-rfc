@@ -726,7 +726,76 @@ window.GardensBirthdays = {
       (a.link ? `<a class="ann-link" href="${href}"${ext}>${esc(a.linkText || "Read more")}</a>` : "") + "</li>";
   }).join("") : '<li class="ann-none"><p>No announcements right now. Check back soon.</p></li>';
 
-  /* Birthdays this month, at the top after any urgent notices */
+  /* Bereavement notices, after any urgent notices. Services with no details yet show "To be confirmed". */
+  const losses = (data.bereavements || []).filter(b => b && b.name && (!b.until || b.until >= todayStr))
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  if (list && losses.length) {
+    const longDate = d => new Date(`${d}T12:00:00+02:00`).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric", timeZone: TZ });
+    const cards = losses.map(b => {
+      const services = (b.services || []).filter(s => s && s.name);
+      const waiting = services.some(s => !s.details);
+      return `<li class="ann ann-memory"><div class="ann-top"><span class="ann-tag">In memory</span>` +
+        (b.date ? `<time datetime="${esc(b.date)}">${longDate(b.date)}</time>` : "") + `</div><div class="memory">` +
+        (b.photo ? `<img class="memory-photo" src="${esc(b.photo)}" alt="${esc(b.name)}" loading="lazy">` : "") +
+        `<div class="memory-text"><p class="memory-lead">In loving memory of</p><h3>${esc(b.name)}</h3>` +
+        (b.years ? `<p class="memory-years">${esc(b.years)}</p>` : "") +
+        String(b.message || "").split(/\n\s*\n/).filter(p => p.trim()).map(p => `<p>${esc(p.trim())}</p>`).join("") +
+        (services.length ? `<dl class="memory-services">` + services.map(s =>
+          `<div><dt>${esc(s.name)}</dt><dd${s.details ? "" : ' class="tbc"'}>${esc(s.details || "To be confirmed")}</dd></div>`).join("") + "</dl>" : "") +
+        (waiting ? `<p class="memory-note">Service details will be shared here as soon as they are confirmed.</p>` : "") +
+        "</div></div>" + messages(b.messages) + "</li>";
+    }).join("");
+    const none = list.querySelector(".ann-none");
+    if (none) none.remove();
+    const urgent = list.querySelectorAll(".ann-urgent");
+    urgent.length ? urgent[urgent.length - 1].insertAdjacentHTML("afterend", cards) : list.insertAdjacentHTML("afterbegin", cards);
+    list.querySelectorAll(".memory-reel").forEach(reel);
+  }
+
+  // Condolence messages under a notice: every message is in the page (screen readers read them all);
+  // on screen they take turns, one at a time
+  function messages(list) {
+    const items = (list || []).filter(m => m && m.text);
+    if (!items.length) return "";
+    return `<div class="memory-messages"><h4>Messages from the Gardens family</h4><ul class="memory-reel">` +
+      items.map((m, i) => `<li${i ? "" : ' class="is-on"'}><blockquote><p>${esc(m.text)}</p></blockquote>` +
+        (m.name ? `<p class="memory-from">${esc(m.name)}</p>` : "") + "</li>").join("") + "</ul>" +
+      (items.length > 1 ? `<div class="memory-reel-controls" hidden><button type="button" class="memory-prev" aria-label="Previous message">Previous</button>` +
+        `<span class="memory-count" aria-hidden="true"></span><button type="button" class="memory-next" aria-label="Next message">Next</button>` +
+        `<button type="button" class="memory-pause" aria-pressed="false">Pause</button></div>` : "") + "</div>";
+  }
+  function reel(ul) {
+    const items = [...ul.children];
+    const box = ul.parentElement, controls = box.querySelector(".memory-reel-controls");
+    if (items.length < 2 || !controls) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { ul.classList.add("is-static"); return; }   // all of them, one under the other
+    controls.hidden = false;
+    let at = 0, paused = false, held = false, timer = null;
+    const count = controls.querySelector(".memory-count"), pause = controls.querySelector(".memory-pause");
+    const show = i => {
+      at = (i + items.length) % items.length;
+      items.forEach((li, n) => li.classList.toggle("is-on", n === at));
+      count.textContent = `${at + 1} of ${items.length}`;
+    };
+    const run = () => { clearInterval(timer); timer = paused || held ? null : setInterval(() => show(at + 1), 6000); };
+    controls.querySelector(".memory-prev").addEventListener("click", () => { show(at - 1); run(); });
+    controls.querySelector(".memory-next").addEventListener("click", () => { show(at + 1); run(); });
+    pause.addEventListener("click", () => {
+      paused = !paused;
+      pause.textContent = paused ? "Play" : "Pause";
+      pause.setAttribute("aria-pressed", String(paused));
+      run();
+    });
+    // Hold still while someone is reading it with the mouse over it, or using the buttons
+    box.addEventListener("mouseenter", () => { held = true; run(); });
+    box.addEventListener("mouseleave", () => { held = false; run(); });
+    box.addEventListener("focusin", () => { held = true; run(); });
+    box.addEventListener("focusout", e => { if (!box.contains(e.relatedTarget)) { held = false; run(); } });
+    show(0);
+    run();
+  }
+
+  /* Birthdays this month, at the top after any urgent notices and bereavement notices */
   const [, mm, dd] = todayStr.split("-").map(Number);
   const bdays = window.GardensBirthdays.inMonth(mm);
   if (list && bdays.length) {
@@ -737,7 +806,7 @@ window.GardensBirthdays = {
       `<h3>Happy birthday to our ${esc(month)} Gardens family</h3>` +
       `<p>Executive, coaches, players and supporters celebrating this month. From everyone at Gardens RFC: have a wonderful day.</p>` +
       window.GardensBirthdays.list(bdays, short, dd) + "</li>";
-    const urgent = list.querySelectorAll(".ann-urgent");
+    const urgent = list.querySelectorAll(".ann-urgent, .ann-memory");
     const none = list.querySelector(".ann-none");
     if (none) none.remove();
     urgent.length ? urgent[urgent.length - 1].insertAdjacentHTML("afterend", card) : list.insertAdjacentHTML("afterbegin", card);
