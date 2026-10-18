@@ -83,7 +83,15 @@
     sent.add(entry); kit.store(SENT, JSON.stringify([...sent])); save(r.counts);
   });
   const unsent = [...lit].filter(e => !sent.has(e) && people.some(p => p.name === who(e)));
-  window.GardensSend("candles", {}).then(r => {
+  // Online before the Google Sheet is set up: candles still light in this browser, and the
+  // count shared by every visitor waits until the forms open
+  if (!window.GardensBackend.open) {
+    const note = document.createElement("p");
+    note.className = "forms-soon";
+    note.textContent = "Candle counts for every visitor start when the online forms open. Your candles are remembered on this device.";
+    $("wall-count").after(note);
+  }
+  if (window.GardensBackend.open) window.GardensSend("candles", {}).then(r => {
     save(r.counts);
     unsent.reduce((chain, e) => chain.then(() => send(e)), Promise.resolve()).catch(() => {});
   }).catch(() => { /* no server: counts stay hidden */ });

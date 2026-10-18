@@ -1,6 +1,7 @@
 @font-face{font-family:"Big Shoulders Display";font-weight:700;font-style:normal;font-display:swap;src:url("../fonts/big-shoulders-display-latin-700-normal.woff2") format("woff2");}
 @font-face{font-family:"Big Shoulders Display";font-weight:800;font-style:normal;font-display:swap;src:url("../fonts/big-shoulders-display-latin-800-normal.woff2") format("woff2");}
 @font-face{font-family:"Big Shoulders Display";font-weight:900;font-style:normal;font-display:swap;src:url("../fonts/big-shoulders-display-latin-900-normal.woff2") format("woff2");}
+@font-face{font-family:"Figtree";font-weight:900;font-style:normal;font-display:swap;src:url("../fonts/figtree-latin-900-normal.woff2") format("woff2");}
 @font-face{font-family:"Source Serif 4";font-weight:400;font-style:normal;font-display:swap;src:url("../fonts/source-serif-4-latin-400-normal.woff2") format("woff2");}
 @font-face{font-family:"Source Serif 4";font-weight:600;font-style:normal;font-display:swap;src:url("../fonts/source-serif-4-latin-600-normal.woff2") format("woff2");}
 @font-face{font-family:"Source Serif 4";font-weight:400;font-style:italic;font-display:swap;src:url("../fonts/source-serif-4-latin-400-italic.woff2") format("woff2");}
@@ -524,13 +525,19 @@ address { font-style: normal; font-size: 1.4rem; line-height: 1.4; margin-bottom
 .join-form [hidden] { display: none !important; }
 
 /* Hero title: crest on the left, two-line headline on the right */
-.hero-title { --flag-w: clamp(96px, 15vw, 210px); display: flex; align-items: flex-start; gap: clamp(.9rem, 2.5vw, 2rem); margin-bottom: var(--s3); perspective: 900px; }
+.hero-title { --flag-w: clamp(96px, 15vw, 210px); --title-gap: clamp(.9rem, 2.5vw, 2rem); container-type: inline-size; display: flex; align-items: flex-start; gap: var(--title-gap); margin-bottom: var(--s3); perspective: 900px; }
 /* The club flag on its pole (assets/js/hero-flag.js) */
 .hero-flag { flex-shrink: 0; display: block; width: var(--flag-w); height: auto; aspect-ratio: 260 / 300; align-self: flex-start; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, .45)); }
 .hero-flag img { width: 70%; height: auto; }
-.hero-title h1 { margin: 0; font-size: clamp(1.55rem, 6.1vw, 5.6rem); line-height: .95; text-shadow: none; min-width: 0;
+.hero-title h1 { margin: 0; font-family: "Figtree", var(--display); font-weight: 900; letter-spacing: -.01em; font-size: min(5.6rem, calc((100cqi - var(--flag-w) - var(--title-gap)) / 14.6)); line-height: 1; text-shadow: none; min-width: 0;
   filter: drop-shadow(0 3px 14px rgba(0, 0, 0, .55)); }
+/* Two lines: the font size above shrinks to fit the longer line beside the flag.
+   Phones are too narrow for that to stay readable, so there it keeps a minimum size and wraps. */
 .hero-title h1 .line { display: block; white-space: nowrap; }
+@media (max-width: 34rem) {
+  .hero-title h1, .hero-body.has-ad .hero-title h1 { font-size: 1.5rem; }
+  .hero-title h1 .line { white-space: normal; text-wrap: balance; }
+}
 /* Dark green, red and white running through the letters */
 .hero-title h1 .w > span {
   color: transparent; -webkit-text-fill-color: transparent;
@@ -740,7 +747,7 @@ nav .nav-live[hidden] { display: none; }
   .hero-body.has-ad > .hero-title { grid-column: 1; grid-row: 1; }
   .hero-body.has-ad > .hero-lede { grid-column: 1; grid-row: 2; }
   .hero-body.has-ad > .hero-actions { grid-column: 1; grid-row: 3; }
-  .hero-body.has-ad .hero-title h1 { font-size: clamp(1.55rem, 3.7vw, 4.4rem); }
+  .hero-body.has-ad .hero-title h1 { font-size: min(4.4rem, calc((100cqi - var(--flag-w) - var(--title-gap)) / 14.6)); }
 }
 
 /* Match day: on the day of a fixture the hero shows a match card instead of the intro (assets/js/fanzone.js) */
@@ -1020,3 +1027,17 @@ nav a.is-current, .dd-btn.is-current { border-bottom-color: var(--gold); }
 @media (prefers-reduced-motion: reduce) {
   .ex-card img, .ex-sheet img { transition: none; }
 }
+
+/* The hero fits the first screen on laptops and desktops: on short windows the flag, the sponsor TV,
+   the intro text and the spacing shrink with the window height so the buttons stay in view */
+@media (min-width: 60rem) {
+  .hero-title { --flag-w: clamp(80px, min(15vw, 22svh), 210px); margin-bottom: clamp(.75rem, 3svh, 1.5rem); }
+  .hero-body.has-ad { grid-template-columns: minmax(0, 1fr) clamp(15rem, min(30vw, 46svh), 27rem); }
+  .hero-lede { font-size: clamp(1.05rem, min(2vw, 3.2svh), 1.4rem); margin-bottom: clamp(.75rem, 3svh, 1.5rem); }
+  .site-header.has-util ~ main .hero-body { padding-bottom: clamp(2rem, 6svh, 5rem); }
+  .tv-advertise { white-space: nowrap; font-size: clamp(1.2rem, min(2.6vw, 4.5svh), 2.1rem); }
+}
+
+/* Online, before the Google Sheet is set up: the note at the top of each form (assets/js/send.js) */
+.forms-soon { max-width: 46rem; margin: 0 0 var(--s2); padding: .8rem 1rem; border-left: 5px solid var(--gold); background: rgba(255, 198, 43, .16); font-weight: 600; }
+.forms-soon a { color: inherit; font-weight: 700; }

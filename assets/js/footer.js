@@ -1,6 +1,7 @@
 /* Gardens RFC footer: the copyright year, and the visitor counter.
    Each visit adds one to the club's count (kept by the Google Sheet script, or by server.py
-   when testing locally). Moving between pages in the same visit keeps the same number. */
+   when testing locally). Moving between pages in the same visit keeps the same number.
+   Online before the Google Sheet is set up there is nothing to count with, so the counter stays hidden. */
 (() => {
   document.querySelectorAll(".foot-year").forEach(y => { y.textContent = new Date().getFullYear(); });
 
@@ -42,6 +43,8 @@
   let known = null;
   try { known = Number(sessionStorage.getItem(KEY)); } catch { known = null; }
   if (known > 0) { show(known); return; }   // another page in the same visit
+  const onThisComputer = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+  if (!cfg.googleScriptUrl && !onThisComputer) return;
 
   const request = cfg.googleScriptUrl
     // text/plain keeps this a "simple" request, which Google Apps Script accepts from other websites

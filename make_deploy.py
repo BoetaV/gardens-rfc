@@ -2,8 +2,8 @@
 
   python make_deploy.py
 
-Makes a fresh "deploy" folder holding only the public website (index.html and
-assets). Everything private stays behind: members.db, exports, server.py, the
+Makes a fresh "deploy" folder holding only the public website (the pages, assets
+and the _headers security file). Everything private stays behind: members.db, exports, server.py, the
 zip file, the original videos folder and the Google script.
 Then drag the "deploy" folder onto Cloudflare Pages (see SETUP-GOOGLE-AND-CLOUDFLARE.md).
 """
@@ -15,7 +15,9 @@ import build_gallery
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "deploy"
-PUBLIC = sorted(p.name for p in ROOT.glob("*.html") if not p.name.startswith("_")) + ["assets"]
+# _headers holds the security headers that Cloudflare Pages adds to every page;
+# favicon.ico sits in the root because browsers ask for /favicon.ico on their own
+PUBLIC = sorted(p.name for p in ROOT.glob("*.html") if not p.name.startswith("_")) + ["assets", "_headers", "favicon.ico"]
 MAX_FILE = 25 * 1024 * 1024  # Cloudflare Pages limit per file
 
 
@@ -53,7 +55,7 @@ def main():
             problems.append(f"{f.relative_to(OUT)} is {f.stat().st_size / 1024 / 1024:.1f} MB; Cloudflare Pages allows 25 MB per file.")
     data = (ROOT / "assets" / "js" / "data.js").read_text(encoding="utf-8")
     if re.search(r'googleScriptUrl:\s*""', data):
-        problems.append("backend.googleScriptUrl in data.js is empty, so the online forms will not save anything yet.")
+        problems.append("backend.googleScriptUrl in data.js is empty, so the online forms show \"Online forms open soon\" until it is filled in.")
     for p in problems:
         print("WARNING: " + p)
     if not problems:

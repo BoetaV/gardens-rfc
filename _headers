@@ -1,0 +1,13 @@
+# Security headers for every page, applied by Cloudflare Pages.
+# Content-Security-Policy: everything comes from the site itself, except
+#   - YouTube and Facebook players for the live stream (frame-src)
+#   - the Google Apps Script that saves the forms, once googleScriptUrl is set (connect-src);
+#     Google answers from script.googleusercontent.com, so both addresses are needed
+#   - inline styles, because the pages use style="..." attributes
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://www.facebook.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests

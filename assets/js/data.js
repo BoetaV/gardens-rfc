@@ -9,6 +9,7 @@ window.GARDENS = {
   // Played match:    add  score: { us: 24, them: 17 }  and it moves to results.
   // The floating bar and the countdown pick the next upcoming match on their own.
   fixtures: [
+    { date: "2026-10-31", time: "15:00", team: "First team", opponent: "Excelsiors RFC", venue: "" },
     { date: "2026-10-17", time: "15:00", team: "First team", opponent: "Harlequins Rugby Club", venue: "" },
     { date: "2026-10-10", time: "15:00", team: "First team", opponent: "Progress", score: { us: 34, them: 21 } }
   ],
@@ -223,7 +224,7 @@ window.GARDENS = {
 
   // WhatsApp: add the club's link to show the WhatsApp icon beside the other social icons.
   // Use  https://wa.me/27XXXXXXXXX  (number, no plus or spaces) or a WhatsApp channel/group invite link.
-  whatsapp: "https://wa.me/27710811812",
+  whatsapp: "https://wa.me/27734079870",
 
   // Join as a player page (join-as-a-player.html).
   // Anything left empty shows "To be confirmed by the club".
@@ -231,7 +232,7 @@ window.GARDENS = {
   players: {
     contactName: "",
     contactRole: "Club registrar",
-    whatsapp: "27710811812",
+    whatsapp: "27734079870",
     email: "",
     training: "",           // e.g. "Tuesdays and Thursdays, 17:30 at Rosedale"
     preseason: "",          // e.g. "Pre-season training starts on 13 January 2027"
@@ -288,7 +289,7 @@ window.GARDENS = {
   //   functions: braais, dinners, fundraisers. Past trips and functions drop off by themselves.
   // Entries marked  sample: true  are examples to show the design. Delete them.
   supporters: {
-    whatsapp: "27710811812",
+    whatsapp: "27734079870",
     membership: "",          // e.g. "R150 a year, family R300"
     meets: "",               // e.g. "First Sunday of the month at the clubhouse"
     committee: [
