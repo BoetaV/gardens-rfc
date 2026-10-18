@@ -1079,6 +1079,13 @@ nav a.is-current, .dd-btn.is-current { border-bottom-color: var(--gold); }
 .memory-reel-controls button:hover { border-color: var(--jersey); }
 .memory-pause { margin-left: auto; }
 .memory-count { min-width: 4.5em; text-align: center; font-size: .95rem; color: rgba(245, 246, 241, .75); font-variant-numeric: tabular-nums; }
+/* Wide screens: the messages sit in a column to the right of the notice, level with the photo */
+@media (min-width: 60rem) {
+  .ann-memory:has(.memory-messages) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(17rem, 21rem); column-gap: var(--s4); align-items: start; }
+  .ann-memory .ann-top { grid-column: 1 / -1; }
+  .ann-memory .memory-messages { align-self: stretch; margin-top: .4rem; padding: 0 0 0 var(--s3); border-top: 0; border-left: 1px solid rgba(245, 246, 241, .18); }
+  .ann-memory .memory-reel blockquote p { font-size: 1.3rem; }
+}
 @media (max-width: 34rem) {
   .memory { grid-template-columns: 1fr; }
   .memory-photo { width: 10rem; }
