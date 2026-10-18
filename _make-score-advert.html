@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Score advert maker</title>
+<!-- Gardens RFC: the 30-second Score Energy Drink advert.
+     Open this page in a browser to preview it. Run  python _record_advert.py  (or  python _record_advert.py score) to save it
+     as assets/video/ads/score-energy-30s.mp4 (the file the website plays). -->
+<style>
+@font-face{font-family:"Big Shoulders Display";font-weight:700;src:url("assets/fonts/big-shoulders-display-latin-700-normal.woff2") format("woff2");}
+@font-face{font-family:"Big Shoulders Display";font-weight:900;src:url("assets/fonts/big-shoulders-display-latin-900-normal.woff2") format("woff2");}
+@font-face{font-family:"Source Serif 4";font-weight:600;src:url("assets/fonts/source-serif-4-latin-600-normal.woff2") format("woff2");}
+body{margin:0;min-height:100vh;display:grid;place-content:center;gap:12px;background:#222;color:#ddd;font:15px system-ui,sans-serif}
+canvas{display:block;width:min(960px,100vw);height:auto}
+p{margin:0 16px}
+</style>
+</head>
+<body>
+<canvas id="c" width="960" height="540"></canvas>
+<p id="msg">Preview (loops). To save it as a video, run <code>python _record_advert.py</code>.</p>
+<script>
+const W = 960, H = 540, DUR = 30, TAU = Math.PI * 2;
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const YEL = "#ffd009", RED = "#e3241b", BLK = "#0c0c0c";
+const DISPLAY = '"Big Shoulders Display", Impact, sans-serif', SERIF = '"Source Serif 4", Georgia, serif';
+const CANS = [
+  { key: "retromelon", name: "RETROMELON", note: "Limited edition  ·  Double shot guarana", bg: "#ec5a72", bg2: "#b8304b", acc: "#3fae49" },
+  { key: "mexican-mango", name: "MEXICAN MANGO", note: "Limited edition  ·  Double shot guarana", bg: "#ffb320", bg2: "#ee6f1a", acc: "#2bb5d8" },
+  { key: "passion", name: "PASSION", note: "500 ml  ·  Passion fruit flavoured", bg: "#5c2b8a", bg2: "#331259", acc: YEL },
+  { key: "original", name: "ORIGINAL", note: "Double shot guarana", bg: "#262626", bg2: "#050505", acc: RED }
+];
+const IM = {};
+
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const easeBack = x => { const c = 1.6; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+let BASE = 1;
+const alpha = a => { ctx.globalAlpha = BASE * clamp(a); };
+
+function load(name, src) {
+  return new Promise(r => { const i = new Image(); i.onload = () => { IM[name] = i; r(); }; i.onerror = r; i.src = src; });
+}
+
+// Draw an image filling the frame, centred on a focus point (fractions of the image)
+function cover(img, fx, fy, zoom) {
+  const s = Math.max(W / img.width, H / img.height) * zoom, w = img.width * s, h = img.height * s;
+  const x = clamp(W / 2 - fx * w, W - w, 0), y = clamp(H / 2 - fy * h, H - h, 0);
+  ctx.drawImage(img, x, y, w, h);
+}
+
+function star(cx, cy, r, rot, fill) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = rot - Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r;
+    ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function text(str, x, y, font, fill, align = "left", spacing = 0) {
+  ctx.font = font;
+  ctx.fillStyle = fill;
+  ctx.textAlign = align;
+  ctx.letterSpacing = spacing + "px";
+  ctx.fillText(str, x, y);
+  ctx.letterSpacing = "0px";
+}
+
+function can(img, x, y, h, rot) {
+  if (!img) return;
+  const w = h * img.width / img.height;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+/* 0 to 4.6 s: the Score logo bursts out of the star */
+function intro(t) {
+  ctx.fillStyle = BLK;
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(W * .18, H * .61, easeOut(seg(t, 0, 1)) * 1150, 0, TAU);
+  ctx.clip();
+  cover(IM.logo, .5, .5, 1.2 - .12 * easeOut(seg(t, 0, 4.6)));
+  ctx.restore();
+
+  // speed lines across the frame
+  for (let i = 0; i < 9; i++) {
+    const p = seg(t, .25 + i * .05, .95 + i * .05);
+    if (p <= 0 || p >= 1) continue;
+    const y = 40 + i * 57, x = -300 + easeInOut(p) * (W + 600);
+    alpha(Math.sin(p * Math.PI) * .9);
+    ctx.fillStyle = i % 3 ? YEL : "#fff";
+    ctx.fillRect(x, y, 220, 4);
+  }
+  alpha(1);
+  const f = seg(t, .95, 1.25);
+  if (f > 0 && f < 1) { alpha(.55 * (1 - f)); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); alpha(1); }
+
+  const a = easeOut(seg(t, 1.5, 2.1)), b = easeOut(seg(t, 1.75, 2.35));
+  alpha(a);
+  text("OFFICIAL ENERGY DRINK PARTNER", W - 40, H - 74 + (1 - a) * 20, "900 34px " + DISPLAY, YEL, "right", 2);
+  alpha(b);
+  text("of Gardens RFC, Uitenhage", W - 40, H - 38 + (1 - b) * 20, "600 24px " + SERIF, "#fff", "right");
+  alpha(1);
+}
+
+/* 4.6 to 18.2 s: the four flavours, one at a time */
+const bubbles = Array.from({ length: 28 }, (_, i) => ({ x: (i * 97) % W, y: (i * 61) % H, r: 3 + (i * 7) % 8, v: 50 + (i * 13) % 70 }));
+function flavour(k, u) {
+  const c = CANS[k];
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, c.bg);
+  g.addColorStop(1, c.bg2);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  alpha(.16);
+  ctx.fillStyle = c.acc;
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate(-.4);
+  for (let x = -W; x < W; x += 90) ctx.fillRect(x + (u * 70) % 90, -H, 34, H * 2);
+  ctx.restore();
+
+  ctx.save();
+  alpha(.22);
+  ctx.font = "900 230px " + DISPLAY;
+  ctx.textAlign = "left";
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 3;
+  const word = c.name + "  ", ww = ctx.measureText(word).width, off = -(u * 110) % ww;
+  for (let x = off; x < W; x += ww) ctx.strokeText(word, x, H - 40);
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(255,255,255,.45)";
+  ctx.lineWidth = 2;
+  bubbles.forEach(b => {
+    const y = H + 20 - ((b.y + u * b.v) % (H + 40));
+    alpha(.8);
+    ctx.beginPath();
+    ctx.arc(b.x + Math.sin(u * 2 + b.r) * 6, y, b.r, 0, TAU);
+    ctx.stroke();
+  });
+  alpha(1);
+
+  const enter = easeBack(seg(u, 0, .7)), exit = easeInOut(seg(u, 3.05, 3.4));
+  const x = W + 160 - enter * (W + 160 - 290) - exit * 560;
+  const y = H / 2 + 12 + Math.sin(u * 2.4) * 8;
+  const rot = .4 * (1 - enter) - .07 + Math.sin(u * 1.7) * .02 - exit * .3;
+  ctx.fillStyle = "rgba(0,0,0,.22)";
+  ctx.beginPath();
+  ctx.ellipse(x + 10, H - 26, 95, 14, 0, 0, TAU);
+  ctx.fill();
+  can(IM[c.key], x, y, 450, rot);
+
+  const lines = [
+    ["SCORE ENERGY DRINK", "700 26px " + DISPLAY, "rgba(255,255,255,.88)", 4]
+  ];
+  c.name.split(" ").forEach(w => {
+    ctx.font = "900 112px " + DISPLAY;
+    const size = Math.floor(Math.min(112, 112 * (W - 500) / ctx.measureText(w).width));
+    lines.push([w, "900 " + size + "px " + DISPLAY, "#fff", 1]);
+  });
+  lines.push([c.note, "600 22px " + SERIF, "rgba(255,255,255,.92)", 0]);
+  let ty = c.name.includes(" ") ? 150 : 205;
+  lines.forEach((l, i) => {
+    const p = easeOut(seg(u, .35 + i * .12, .85 + i * .12)) * (1 - exit);
+    alpha(p);
+    ty += i === 0 ? 0 : (l[1].startsWith("900") ? 104 : 46);
+    ctx.shadowColor = "rgba(0,0,0,.25)";
+    ctx.shadowBlur = 12;
+    text(l[0], 470 + (1 - p) * 30, ty, l[1], l[2], "left", l[3]);
+    ctx.shadowBlur = 0;
+  });
+  alpha(1);
+}
+
+/* 18.2 to 24.4 s: Score on the Gardens jersey */
+function jersey(u) {
+  cover(IM.jersey, .42, .5, 1.04 + .22 * easeInOut(seg(u, 0, 6.2)));
+  const g = ctx.createLinearGradient(0, H * .45, 0, H);
+  g.addColorStop(0, "rgba(8,20,14,0)");
+  g.addColorStop(1, "rgba(8,20,14,.88)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  const a = easeOut(seg(u, .4, .9)), b = easeOut(seg(u, .6, 1.1)), c = easeOut(seg(u, .8, 1.3));
+  alpha(a);
+  text("WORN WITH PRIDE", 40, H - 128 + (1 - a) * 20, "900 28px " + DISPLAY, YEL, "left", 4);
+  alpha(b);
+  text("SCORE ON THE GARDENS JERSEY", 38, H - 70 + (1 - b) * 20, "900 66px " + DISPLAY, "#fff");
+  alpha(c);
+  text("Official energy drink partner of Gardens RFC, Uitenhage since 1932.", 40, H - 34 + (1 - c) * 20, "600 21px " + SERIF, "rgba(255,255,255,.9)");
+  alpha(easeOut(seg(u, .3, 1)));
+  if (IM.crest) ctx.drawImage(IM.crest, W - 104, 24, 76, 86);
+  alpha(1);
+  ["#0f5a3a", "#f5f6f1", "#c60204"].forEach((col, i) => {
+    ctx.fillStyle = col;
+    ctx.fillRect(0, H - 18 + i * 6, W * easeOut(seg(u, .2 + i * .12, 1.2 + i * .12)), 6);
+  });
+}
+
+/* 24.4 to 30 s: the line-up and the sponsor message */
+function endcard(u) {
+  ctx.fillStyle = BLK;
+  ctx.fillRect(0, 0, W, H);
+  const d = (1 - easeOut(seg(u, 0, .6))) * -320;
+  ctx.fillStyle = YEL;
+  ctx.beginPath();
+  ctx.moveTo(0, d);
+  ctx.lineTo(W, d);
+  ctx.lineTo(W, H * .3 + d);
+  ctx.lineTo(0, H * .5 + d);
+  ctx.closePath();
+  ctx.fill();
+
+  star(735, 300, 240, u * .15, "rgba(227,36,27," + .9 * easeOut(seg(u, .2, .8)) + ")");
+  [3, 2, 1, 0].forEach(i => {
+    const p = easeBack(seg(u, .4 + i * .14, 1.1 + i * .14));
+    can(IM[CANS[i].key], 600 + i * 92, H - 175 + (1 - p) * 460 + Math.sin(u * 2 + i) * 4, 300, (i - 1.5) * .05);
+  });
+
+  const s = easeBack(seg(u, .5, 1.1));
+  if (IM.logo && s > 0) {
+    ctx.save();
+    ctx.translate(270, 190);
+    ctx.rotate(-.04);
+    ctx.scale(s, s);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(-214, -126, 428, 252);
+    ctx.drawImage(IM.logo, 40, 195, 640, 360, -208, -120, 416, 234);
+    ctx.restore();
+  }
+  const a = easeOut(seg(u, 1.1, 1.6)), b = easeOut(seg(u, 1.3, 1.8)), c = easeOut(seg(u, 1.5, 2));
+  alpha(a);
+  text("PROUD SPONSOR OF", 64, 384 + (1 - a) * 16, "900 30px " + DISPLAY, YEL, "left", 4);
+  alpha(b);
+  text("GARDENS RFC", 60, 456 + (1 - b) * 16, "900 84px " + DISPLAY, "#fff");
+  alpha(c);
+  text("Green, white and red since 1932.", 64, 496 + (1 - c) * 16, "600 22px " + SERIF, "rgba(255,255,255,.85)");
+  alpha(seg(u, 5.1, 5.6));
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+  alpha(1);
+}
+
+const SCENES = [
+  [0, 4.6, intro],
+  [4.6, 8, u => flavour(0, u)],
+  [8, 11.4, u => flavour(1, u)],
+  [11.4, 14.8, u => flavour(2, u)],
+  [14.8, 18.2, u => flavour(3, u)],
+  [18.2, 24.4, jersey],
+  [24.4, 30, endcard]
+];
+const FADE = .35;
+function draw(t) {
+  ctx.globalAlpha = 1;
+  SCENES.forEach(([a, b, f]) => {
+    if (t < a || t >= b + FADE) return;
+    BASE = a === 0 ? 1 : easeOut(seg(t, a, a + FADE));
+    ctx.save();
+    ctx.globalAlpha = BASE;
+    f(t - a);
+    ctx.restore();
+  });
+  BASE = 1;
+}
+
+async function record() {
+  const types = ["video/mp4;codecs=avc1.4d002a", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+  const type = types.find(t => MediaRecorder.isTypeSupported(t));
+  draw(0);
+  const mr = new MediaRecorder(cv.captureStream(30), { mimeType: type, videoBitsPerSecond: 1500000 });
+  const chunks = [], stopped = new Promise(r => { mr.onstop = r; });
+  mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  mr.start(1000);
+  let poster = null;
+  const t0 = performance.now();
+  await new Promise(done => {
+    (function frame(now) {
+      const t = (now - t0) / 1000;
+      if (t >= DUR) { done(); return; }
+      draw(t);
+      if (!poster && t >= 27) poster = new Promise(r => cv.toBlob(r, "image/jpeg", .85));
+      requestAnimationFrame(frame);
+    })(t0);
+  });
+  mr.stop();
+  await stopped;
+  const ext = type.startsWith("video/mp4") ? "mp4" : "webm";
+  await fetch("/save?name=score-energy-30s." + ext, { method: "POST", body: new Blob(chunks, { type }) });
+  await fetch("/save?name=score-energy-30s.jpg", { method: "POST", body: await poster });
+  await fetch("/done", { method: "POST" });
+}
+
+Promise.all([
+  load("logo", "assets/img/sponsors/score-logo.jpg"),
+  load("jersey", "assets/img/sponsors/score-jersey.jpg"),
+  load("crest", "assets/img/logo.png"),
+  ...CANS.map(c => load(c.key, "assets/img/sponsors/score-can-" + c.key + ".webp")),
+  document.fonts.load("900 40px " + DISPLAY), document.fonts.load("700 26px " + DISPLAY), document.fonts.load("600 20px " + SERIF)
+]).then(() => {
+  const at = parseFloat(location.hash.slice(1));
+  if (new URLSearchParams(location.search).has("record")) { record(); return; }
+  if (!isNaN(at)) { draw(at); return; }   // _make-score-advert.html#12 shows the frame at 12 seconds
+  const t0 = performance.now();
+  (function loop(now) { draw(((now - t0) / 1000) % DUR); requestAnimationFrame(loop); })(t0);
+});
+</script>
+</body>
+</html>

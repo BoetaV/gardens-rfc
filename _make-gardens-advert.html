@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gardens RFC video maker</title>
+<!-- Gardens RFC: the 40-second club video that plays after the Score advert.
+     Open this page in a browser to preview it. Run  python _record_advert.py gardens  to save it
+     as assets/video/ads/gardens-rfc-40s.mp4 (the file the website plays). -->
+<style>
+@font-face{font-family:"Big Shoulders Display";font-weight:700;src:url("assets/fonts/big-shoulders-display-latin-700-normal.woff2") format("woff2");}
+@font-face{font-family:"Big Shoulders Display";font-weight:900;src:url("assets/fonts/big-shoulders-display-latin-900-normal.woff2") format("woff2");}
+@font-face{font-family:"Source Serif 4";font-weight:600;src:url("assets/fonts/source-serif-4-latin-600-normal.woff2") format("woff2");}
+@font-face{font-family:"Source Serif 4";font-weight:400;font-style:italic;src:url("assets/fonts/source-serif-4-latin-400-italic.woff2") format("woff2");}
+body{margin:0;min-height:100vh;display:grid;place-content:center;gap:12px;background:#222;color:#ddd;font:15px system-ui,sans-serif}
+canvas{display:block;width:min(960px,100vw);height:auto}
+p{margin:0 16px}
+</style>
+</head>
+<body>
+<canvas id="c" width="960" height="540"></canvas>
+<p id="msg">Preview (loops). To save it as a video, run <code>python _record_advert.py gardens</code>.</p>
+<script>
+const W = 960, H = 540, DUR = 40, TAU = Math.PI * 2, OUT_NAME = "gardens-rfc-40s";
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const OAK = "#0b1f18", LEAF = "#0f5a3a", RED = "#c60204", GOLD = "#ffc62b", JERSEY = "#f5f6f1";
+const DISPLAY = '"Big Shoulders Display", Impact, sans-serif', SERIF = '"Source Serif 4", Georgia, serif';
+const IMAGES = {
+  crest: "assets/img/logo.png",
+  oldTeam: "assets/img/history/18.jpg",
+  oldSquad: "assets/img/history/16.jpg",
+  trophies: "assets/img/history/14.jpg",
+  action1: "assets/img/gameday/07.jpg",
+  action2: "assets/img/gameday/08.jpg",
+  action3: "assets/img/gameday/06.jpg",
+  action4: "assets/img/gameday/09.jpg",
+  fans1: "assets/img/dardensfamily/05.jpg",
+  fans2: "assets/img/dardensfamily/00.jpg",
+  fans3: "assets/img/dardensfamily/04.jpg",
+  team: "assets/img/teams/03.jpg"
+};
+const IM = {};
+
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const easeBack = x => { const c = 1.6; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+let BASE = 1;
+const alpha = a => { ctx.globalAlpha = BASE * clamp(a); };
+
+function load(name, src) {
+  return new Promise(r => { const i = new Image(); i.onload = () => { IM[name] = i; r(); }; i.onerror = r; i.src = src; });
+}
+
+// Draw an image filling a box, centred on a focus point (fractions of the image)
+function cover(img, fx, fy, zoom, bx = 0, by = 0, bw = W, bh = H) {
+  if (!img) return;
+  const s = Math.max(bw / img.width, bh / img.height) * zoom, w = img.width * s, h = img.height * s;
+  const x = clamp(bx + bw / 2 - fx * w, bx + bw - w, bx), y = clamp(by + bh / 2 - fy * h, by + bh - h, by);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(bx, by, bw, bh);
+  ctx.clip();
+  ctx.drawImage(img, x, y, w, h);
+  ctx.restore();
+}
+
+function text(str, x, y, font, fill, align = "left", spacing = 0) {
+  ctx.font = font;
+  ctx.fillStyle = fill;
+  ctx.textAlign = align;
+  ctx.letterSpacing = spacing + "px";
+  ctx.fillText(str, x, y);
+  ctx.letterSpacing = "0px";
+}
+
+// Text that rises into place as p goes 0 to 1
+function rise(str, x, y, font, fill, p, align = "left", spacing = 0) {
+  if (p <= 0) return;
+  alpha(p);
+  text(str, x, y + (1 - p) * 18, font, fill, align, spacing);
+  alpha(1);
+}
+
+function shade(x0, y0, x1, y1, from, to) {
+  const g = ctx.createLinearGradient(x0, y0, x1, y1);
+  g.addColorStop(0, from);
+  g.addColorStop(1, to);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// The jersey hoops sweeping in along the bottom edge
+function hoops(p, y = H - 18) {
+  [LEAF, JERSEY, RED].forEach((c, i) => {
+    ctx.fillStyle = c;
+    ctx.fillRect(0, y + i * 6, W * easeOut(clamp(p * 1.4 - i * .2)), 6);
+  });
+}
+
+/* 0 to 5 s: the crest and the club name */
+function intro(t) {
+  const g = ctx.createRadialGradient(300, 260, 20, 300, 260, 760);
+  g.addColorStop(0, "#14704a");
+  g.addColorStop(1, OAK);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(250, 262);
+  ctx.rotate(t * .12);
+  alpha(.09 * easeOut(seg(t, .2, 1.2)));
+  ctx.fillStyle = JERSEY;
+  for (let i = 0; i < 16; i++) {
+    ctx.rotate(TAU / 16);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(900, -70);
+    ctx.lineTo(900, 70);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+  alpha(1);
+
+  const s = easeBack(seg(t, .2, 1));
+  if (IM.crest && s > 0) {
+    ctx.save();
+    ctx.translate(250, 262);
+    ctx.scale(s, s);
+    ctx.shadowColor = "rgba(0,0,0,.45)";
+    ctx.shadowBlur = 30;
+    ctx.drawImage(IM.crest, -98, -110, 196, 220);
+    ctx.restore();
+  }
+  rise("GARDENS", 400, 238, "900 120px " + DISPLAY, JERSEY, easeOut(seg(t, .8, 1.4)));
+  rise("RUGBY FOOTBALL CLUB", 404, 288, "900 40px " + DISPLAY, JERSEY, easeOut(seg(t, 1, 1.6)), "left", 3);
+  rise("UITENHAGE  ·  EST. 1932", 405, 336, "700 28px " + DISPLAY, GOLD, easeOut(seg(t, 1.3, 1.9)), "left", 5);
+  hoops(seg(t, .6, 2));
+}
+
+/* 5 to 12 s: where it started */
+function history(u) {
+  ctx.fillStyle = "#1d1811";
+  ctx.fillRect(0, 0, W, H);
+  ctx.filter = "sepia(.55) contrast(1.05) brightness(.95)";
+  cover(IM.oldTeam, .5, .55, 1.04 + .08 * seg(u, 0, 4.2));
+  const b = easeInOut(seg(u, 3.6, 4.4));
+  if (b > 0) { alpha(b); cover(IM.oldSquad, .5, .45, 1.12 - .08 * seg(u, 3.6, 7.4)); alpha(1); }
+  ctx.filter = "none";
+  shade(0, 0, W * .75, 0, "rgba(11,31,24,.92)", "rgba(11,31,24,0)");
+
+  const out1 = 1 - easeOut(seg(u, 3.3, 3.7));
+  rise("1932", 46, 200, "900 150px " + DISPLAY, GOLD, easeOut(seg(u, .3, .9)) * out1);
+  rise("A few far-sighted men.", 50, 262, "600 30px " + SERIF, JERSEY, easeOut(seg(u, .7, 1.3)) * out1);
+  rise("One set of green vests, dyed by hand.", 50, 302, "600 30px " + SERIF, JERSEY, easeOut(seg(u, 1, 1.6)) * out1);
+  rise("DISCIPLINE AND RESPECT", 50, 356, "900 30px " + DISPLAY, GOLD, easeOut(seg(u, 1.5, 2.1)) * out1, "left", 4);
+
+  rise("1936", 46, 200, "900 150px " + DISPLAY, GOLD, easeOut(seg(u, 3.9, 4.5)));
+  rise("Kippler's Shield.", 50, 262, "600 30px " + SERIF, JERSEY, easeOut(seg(u, 4.2, 4.8)));
+  rise("The first major trophy, under Larry Ferreira.", 50, 302, "600 30px " + SERIF, JERSEY, easeOut(seg(u, 4.5, 5.1)));
+}
+
+/* 12 to 19 s: honours */
+function honours(u) {
+  cover(IM.trophies, .5, .5, 1.05 + .1 * easeInOut(seg(u, 0, 7)), 0, 0, 470, H);
+  shade(0, 0, 470, 0, "rgba(11,31,24,0)", "rgba(11,31,24,.35)");
+  const px = W - easeOut(seg(u, 0, .6)) * 490;
+  ctx.fillStyle = OAK;
+  ctx.fillRect(px, 0, W - px + 2, H);
+  ctx.fillStyle = RED;
+  ctx.fillRect(px, 0, 6, H);
+
+  const x = px + 44;
+  rise("NINETY-FOUR YEARS OF CLIMBING", x, 76, "900 26px " + DISPLAY, GOLD, easeOut(seg(u, .5, 1)), "left", 3);
+  rise("15", x - 2, 196, "900 130px " + DISPLAY, JERSEY, easeOut(seg(u, .8, 1.3)));
+  rise("YEARS", x + 120, 150, "900 44px " + DISPLAY, JERSEY, easeOut(seg(u, 1, 1.5)));
+  rise("of trophies in a row", x + 122, 188, "italic 400 24px " + SERIF, JERSEY, easeOut(seg(u, 1.1, 1.6)));
+  [
+    ["2000", "Promoted to the Super League"],
+    ["2016 · 2018", "EPRU Grand Challenge champions"],
+    ["2019", "SARU Gold Cup quarter-finalists"]
+  ].forEach(([year, what], i) => {
+    const p = easeOut(seg(u, 1.8 + i * .55, 2.4 + i * .55)), y = 268 + i * 82;
+    if (p <= 0) return;
+    alpha(p);
+    ctx.fillStyle = "rgba(255,255,255,.12)";
+    ctx.fillRect(x, y - 30 + (1 - p) * 18, 400 * p, 1);
+    alpha(1);
+    rise(year, x, y + 6, "900 30px " + DISPLAY, GOLD, p, "left", 2);
+    rise(what, x, y + 40, "600 23px " + SERIF, JERSEY, p);
+  });
+}
+
+/* 19 to 28.6 s: game day, four quick cuts */
+const CUTS = [
+  ["action1", .45, .5, "DISCIPLINE."],
+  ["action2", .5, .55, "RESPECT."],
+  ["action3", .4, .5, "HEART."],
+  ["action4", .5, .5, "GARDENS."]
+];
+function action(u) {
+  const k = Math.min(3, Math.floor(u / 2.4)), v = u - k * 2.4, c = CUTS[k];
+  cover(IM[c[0]], c[1] + (k % 2 ? -1 : 1) * .04 * v, c[2], 1.08 + v * .05);
+  shade(0, H * .4, 0, H, "rgba(11,31,24,0)", "rgba(11,31,24,.8)");
+  const p = easeOut(seg(v, .15, .5));
+  if (p > 0) {
+    ctx.save();
+    ctx.translate(40, H - 54);
+    ctx.scale(1.35 - .35 * p, 1.35 - .35 * p);
+    alpha(p);
+    text(c[3], 0, 0, "900 104px " + DISPLAY, k === 3 ? GOLD : JERSEY);
+    ctx.restore();
+    alpha(1);
+  }
+  if (k > 0 && v < .14) { alpha(.7 * (1 - v / .14)); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); alpha(1); }
+  hoops(1);
+}
+
+/* 28.6 to 34.6 s: the supporters */
+function family(u) {
+  ctx.fillStyle = OAK;
+  ctx.fillRect(0, 0, W, H);
+  const a = easeOut(seg(u, 0, .6)), b = easeOut(seg(u, .25, .85)), c = easeOut(seg(u, .45, 1.05));
+  cover(IM.fans1, .5, .4, 1.05 + .06 * seg(u, 0, 6), -(1 - a) * 480, 0, 476, H);
+  cover(IM.fans2, .5, .4, 1.05 + .06 * seg(u, 0, 6), 484 + (1 - b) * 480, 0, 476, 266);
+  cover(IM.fans3, .5, .35, 1.05 + .06 * seg(u, 0, 6), 484 + (1 - c) * 480, 274, 476, 266);
+  shade(0, H * .5, 0, H, "rgba(11,31,24,0)", "rgba(11,31,24,.9)");
+  rise("THE GARDENS FAMILY", 40, H - 78, "900 66px " + DISPLAY, JERSEY, easeOut(seg(u, 1.1, 1.7)));
+  rise("Families across the town have worn the green, white and red.", 42, H - 38, "600 23px " + SERIF, GOLD, easeOut(seg(u, 1.4, 2)));
+}
+
+/* 34.6 to 40 s: end card */
+function finale(u) {
+  cover(IM.team, .5, .5, 1.22 - .06 * seg(u, 0, 5.4));
+  ctx.fillStyle = "rgba(11,31,24,.78)";
+  ctx.fillRect(0, 0, W, H);
+  const s = easeBack(seg(u, .2, .9));
+  if (IM.crest && s > 0) ctx.drawImage(IM.crest, W / 2 - 52 * s, 112 - 58 * s, 104 * s, 116 * s);
+  rise("BORN IN THE GARDEN TOWN.", W / 2, 258, "900 62px " + DISPLAY, JERSEY, easeOut(seg(u, .6, 1.1)), "center");
+  rise("BUILT ON RESPECT.", W / 2, 320, "900 62px " + DISPLAY, "#ff5a4f", easeOut(seg(u, .8, 1.3)), "center");
+  rise("Come to a match  ·  Join as a player  ·  Support the club", W / 2, 384, "600 23px " + SERIF, GOLD, easeOut(seg(u, 1.2, 1.8)), "center");
+  rise("GARDENS RFC  ·  UITENHAGE  ·  SINCE 1932", W / 2, 448, "700 22px " + DISPLAY, "rgba(245,246,241,.75)", easeOut(seg(u, 1.5, 2.1)), "center", 5);
+  hoops(seg(u, .3, 1.5));
+  alpha(seg(u, 4.9, 5.4));
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+  alpha(1);
+}
+
+const SCENES = [
+  [0, 5, intro],
+  [5, 12, history],
+  [12, 19, honours],
+  [19, 28.6, action],
+  [28.6, 34.6, family],
+  [34.6, 40, finale]
+];
+const FADE = .4;
+function draw(t) {
+  ctx.globalAlpha = 1;
+  SCENES.forEach(([a, b, f]) => {
+    if (t < a || t >= b + FADE) return;
+    BASE = a === 0 ? 1 : easeOut(seg(t, a, a + FADE));
+    ctx.save();
+    ctx.globalAlpha = BASE;
+    f(t - a);
+    ctx.restore();
+  });
+  BASE = 1;
+  // fade up from black so the loop joins the previous advert cleanly
+  if (t < .4) { ctx.fillStyle = "rgba(0,0,0," + (1 - t / .4) + ")"; ctx.fillRect(0, 0, W, H); }
+}
+
+async function record() {
+  const types = ["video/mp4;codecs=avc1.4d002a", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+  const type = types.find(t => MediaRecorder.isTypeSupported(t));
+  draw(0);
+  const mr = new MediaRecorder(cv.captureStream(30), { mimeType: type, videoBitsPerSecond: 1200000 });
+  const chunks = [], stopped = new Promise(r => { mr.onstop = r; });
+  mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  mr.start(1000);
+  let poster = null;
+  const t0 = performance.now();
+  await new Promise(done => {
+    (function frame(now) {
+      const t = (now - t0) / 1000;
+      if (t >= DUR) { done(); return; }
+      draw(t);
+      if (!poster && t >= 37) poster = new Promise(r => cv.toBlob(r, "image/jpeg", .85));
+      requestAnimationFrame(frame);
+    })(t0);
+  });
+  mr.stop();
+  await stopped;
+  const ext = type.startsWith("video/mp4") ? "mp4" : "webm";
+  await fetch(`/save?name=${OUT_NAME}.${ext}`, { method: "POST", body: new Blob(chunks, { type }) });
+  await fetch(`/save?name=${OUT_NAME}.jpg`, { method: "POST", body: await poster });
+  await fetch("/done", { method: "POST" });
+}
+
+Promise.all([
+  ...Object.entries(IMAGES).map(([k, src]) => load(k, src)),
+  document.fonts.load("900 40px " + DISPLAY), document.fonts.load("700 26px " + DISPLAY),
+  document.fonts.load("600 20px " + SERIF), document.fonts.load("italic 400 20px " + SERIF)
+]).then(() => {
+  const at = parseFloat(location.hash.slice(1));
+  if (new URLSearchParams(location.search).has("record")) { record(); return; }
+  if (!isNaN(at)) { draw(at); return; }   // _make-gardens-advert.html#12 shows the frame at 12 seconds
+  const t0 = performance.now();
+  (function loop(now) { draw(((now - t0) / 1000) % DUR); requestAnimationFrame(loop); })(t0);
+});
+</script>
+</body>
+</html>

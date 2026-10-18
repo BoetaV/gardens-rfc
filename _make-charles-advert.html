@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Oom Charles memorial video maker</title>
+<!-- Gardens RFC: the 30-second memorial video for Oom Charles, in the colours of his memorial page.
+     Open this page in a browser to preview it. Run  python _record_advert.py charles  to save it
+     as assets/video/ads/oom-charles-30s.mp4 (the file the website plays). -->
+<style>
+@font-face{font-family:"Big Shoulders Display";font-weight:800;src:url("assets/fonts/big-shoulders-display-latin-800-normal.woff2") format("woff2");}
+@font-face{font-family:"Big Shoulders Display";font-weight:900;src:url("assets/fonts/big-shoulders-display-latin-900-normal.woff2") format("woff2");}
+@font-face{font-family:"Source Serif 4";font-weight:400;src:url("assets/fonts/source-serif-4-latin-400-normal.woff2") format("woff2");}
+@font-face{font-family:"Source Serif 4";font-weight:600;src:url("assets/fonts/source-serif-4-latin-600-normal.woff2") format("woff2");}
+@font-face{font-family:"Source Serif 4";font-weight:400;font-style:italic;src:url("assets/fonts/source-serif-4-latin-400-italic.woff2") format("woff2");}
+body{margin:0;min-height:100vh;display:grid;place-content:center;gap:12px;background:#222;color:#ddd;font:15px system-ui,sans-serif}
+canvas{display:block;width:min(960px,100vw);height:auto}
+p{margin:0 16px}
+</style>
+</head>
+<body>
+<canvas id="c" width="960" height="540"></canvas>
+<p id="msg">Preview (loops). To save it as a video, run <code>python _record_advert.py charles</code>.</p>
+<script>
+const W = 960, H = 540, DUR = 30, TAU = Math.PI * 2, OUT_NAME = "oom-charles-30s";
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const VELVET = "#0b2a1d", BRASS = "#c99a2e", BRASS_HI = "#f3d684", CREAM = "#f7f1e1";
+const DISPLAY = '"Big Shoulders Display", Impact, sans-serif', SERIF = '"Source Serif 4", Georgia, serif';
+const DIR = "assets/img/Oom Charles/";
+const IMAGES = {
+  crest: "assets/img/logo.png",
+  portrait: DIR + "29026252_947865558699490_3600639623048462336_n.jpg",
+  touchline: DIR + "28872118_947865555366157_3189555864923013120_n.jpg",
+  beanie: DIR + "510482686_9722235264554919_7250342897279828717_n.jpg",
+  silverware: DIR + "513122409_9774165229376016_5471354557449056503_n.jpg",
+  trophyNight: DIR + "514419737_23895961440024263_6571645011923304903_n.jpg",
+  crestJersey: DIR + "44477849_106787736979227_9013417830514688000_n.jpg",
+  smile: DIR + "514418150_23896657666621307_8000524542759320310_n.jpg",
+  prayer: DIR + "512686950_9776851932440679_8123170430836583860_n.jpg"
+};
+const IM = {};
+
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+let BASE = 1;
+const alpha = a => { ctx.globalAlpha = BASE * clamp(a); };
+
+function load(name, src) {
+  return new Promise(r => { const i = new Image(); i.onload = () => { IM[name] = i; r(); }; i.onerror = r; i.src = src; });
+}
+
+// Draw an image filling a box, centred on a focus point (fractions of the image)
+function cover(img, fx, fy, zoom, bx, by, bw, bh) {
+  if (!img) return;
+  const s = Math.max(bw / img.width, bh / img.height) * zoom, w = img.width * s, h = img.height * s;
+  const x = clamp(bx + bw / 2 - fx * w, bx + bw - w, bx), y = clamp(by + bh / 2 - fy * h, by + bh - h, by);
+  ctx.drawImage(img, x, y, w, h);
+}
+
+function text(str, x, y, font, fill, align = "left", spacing = 0) {
+  ctx.font = font;
+  ctx.fillStyle = fill;
+  ctx.textAlign = align;
+  ctx.letterSpacing = spacing + "px";
+  ctx.fillText(str, x, y);
+  ctx.letterSpacing = "0px";
+}
+
+// Text that drifts up into place as p goes 0 to 1
+function rise(str, x, y, font, fill, p, align = "left", spacing = 0) {
+  if (p <= 0) return;
+  alpha(p);
+  text(str, x, y + (1 - p) * 12, font, fill, align, spacing);
+  alpha(1);
+}
+
+// Velvet background with the soft damask dots from the memorial page
+function velvet() {
+  ctx.fillStyle = VELVET;
+  ctx.fillRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, W * .7);
+  g.addColorStop(0, "#144a33");
+  g.addColorStop(1, "rgba(20,74,51,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "rgba(201,154,46,.06)";
+  for (let y = 28; y < H; y += 56) for (let x = 28; x < W; x += 56) {
+    ctx.beginPath();
+    ctx.arc(x, y, 10, 0, TAU);
+    ctx.fill();
+  }
+  vignette(.75);
+}
+
+function vignette(a) {
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, W * .72);
+  v.addColorStop(0, "rgba(0,0,0,0)");
+  v.addColorStop(1, `rgba(0,0,0,${a})`);
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// A candle; lit goes 0 to 1 as the flame catches
+function candle(x, y, s, t, lit) {
+  const flick = 1 + .07 * Math.sin(t * 9.1) + .05 * Math.sin(t * 13.7 + 1) + .03 * Math.sin(t * 23.3);
+  const sway = Math.sin(t * 2.7) * 1.6 * s + Math.sin(t * 7.1) * .6 * s;
+  const fy = y - 50 * s;
+  if (lit > 0) {
+    const glow = ctx.createRadialGradient(x, fy, 0, x, fy, 210 * s * flick);
+    glow.addColorStop(0, `rgba(255,196,110,${.55 * lit})`);
+    glow.addColorStop(.4, `rgba(255,160,70,${.14 * lit})`);
+    glow.addColorStop(1, "rgba(255,160,70,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - 230 * s, fy - 230 * s, 460 * s, 460 * s);
+  }
+  const body = ctx.createLinearGradient(x - 20 * s, 0, x + 20 * s, 0);
+  body.addColorStop(0, "#cfc4a8");
+  body.addColorStop(.45, "#fbf6e8");
+  body.addColorStop(1, "#b9ae92");
+  ctx.fillStyle = body;
+  ctx.fillRect(x - 20 * s, y - 34 * s, 40 * s, 120 * s);
+  ctx.fillStyle = `rgba(255,214,140,${.5 * lit})`;
+  ctx.beginPath();
+  ctx.ellipse(x, y - 34 * s, 20 * s, 5 * s, 0, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = "#2b2116";
+  ctx.lineWidth = 2 * s;
+  ctx.beginPath();
+  ctx.moveTo(x, y - 34 * s);
+  ctx.lineTo(x, y - 42 * s);
+  ctx.stroke();
+  if (lit <= 0) return;
+  const fh = 46 * s * flick * lit, fw = 12 * s * (.6 + .4 * lit);
+  const flame = ctx.createRadialGradient(x, y - 44 * s, 0, x, y - 44 * s - fh * .4, fh);
+  flame.addColorStop(0, "rgba(255,255,245,1)");
+  flame.addColorStop(.3, "rgba(255,226,140,.95)");
+  flame.addColorStop(.7, "rgba(255,150,50,.75)");
+  flame.addColorStop(1, "rgba(255,120,40,0)");
+  ctx.fillStyle = flame;
+  ctx.beginPath();
+  ctx.moveTo(x, y - 40 * s);
+  ctx.bezierCurveTo(x - fw * 1.3, y - 46 * s, x - fw * .7 + sway * .5, y - 40 * s - fh * .7, x + sway, y - 40 * s - fh);
+  ctx.bezierCurveTo(x + fw * .7 + sway * .5, y - 40 * s - fh * .7, x + fw * 1.3, y - 46 * s, x, y - 40 * s);
+  ctx.fill();
+}
+
+// Gold motes drifting up through the whole video
+const MOTES = Array.from({ length: 46 }, (_, i) => ({ x: (i * 211) % W, y: (i * 137) % H, r: .8 + (i * 7) % 5 * .45, v: 6 + (i * 13) % 14, p: i }));
+function motes(t) {
+  MOTES.forEach(m => {
+    const y = H + 10 - ((m.y + t * m.v) % (H + 20)), x = m.x + Math.sin(t * .4 + m.p) * 14;
+    alpha(.25 + .25 * Math.sin(t * 1.3 + m.p));
+    ctx.fillStyle = BRASS_HI;
+    ctx.beginPath();
+    ctx.arc(x, y, m.r, 0, TAU);
+    ctx.fill();
+  });
+  alpha(1);
+}
+
+function goldRule(cx, y, w, p) {
+  if (p <= 0) return;
+  ctx.fillStyle = BRASS;
+  ctx.fillRect(cx - w / 2 * p, y, w * p, 2);
+  ctx.save();
+  ctx.translate(cx, y + 1);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillRect(-4 * p, -4 * p, 8 * p, 8 * p);
+  ctx.restore();
+}
+
+/* 0 to 5.5 s: a candle is lit */
+function opening(t) {
+  velvet();
+  candle(W / 2, 438, 1.25, t, easeOut(seg(t, .5, 1.6)));
+  rise("In loving memory", W / 2, 128, "italic 400 30px " + SERIF, BRASS_HI, easeOut(seg(t, 1.2, 2.2)), "center", 1);
+  rise("OOM CHARLES", W / 2, 236, "900 112px " + DISPLAY, CREAM, easeOut(seg(t, 1.8, 3)), "center", 6);
+  goldRule(W / 2, 262, 300, easeInOut(seg(t, 2.6, 3.6)));
+}
+
+/* 5.5 to 12 s: the portrait and the club's tribute */
+function portrait(u) {
+  velvet();
+  const cx = 268, cy = 270, rx = 128, ry = 168, p = easeOut(seg(u, 0, 1.2));
+  ctx.save();
+  alpha(p);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
+  ctx.clip();
+  cover(IM.portrait, .5, .36, 1.06 + .1 * seg(u, 0, 6.5), cx - rx, cy - ry, rx * 2, ry * 2);
+  ctx.restore();
+  alpha(p);
+  ctx.strokeStyle = BRASS;
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx + 4, ry + 4, 0, 0, TAU);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(243,214,132,.6)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx + 15, ry + 15, 0, 0, TAU);
+  ctx.stroke();
+  alpha(1);
+
+  const x = 470;
+  ["In his green blazer", "and Gardens beanie,", "on the touchline and", "in the trophy photos,"].forEach((l, i) => {
+    rise(l, x, 150 + i * 44, "400 33px " + SERIF, CREAM, easeOut(seg(u, .9 + i * .55, 1.7 + i * .55)));
+  });
+  rise("Oom Charles was part", x, 362, "italic 400 36px " + SERIF, BRASS_HI, easeOut(seg(u, 3.4, 4.3)));
+  rise("of the Gardens story.", x, 406, "italic 400 36px " + SERIF, BRASS_HI, easeOut(seg(u, 3.7, 4.6)));
+}
+
+/* 12 to 21 s: keepsake prints laid down one by one */
+const PRINTS = [
+  ["touchline", .5, .4, "On the touchline", 190, 168, -.08],
+  ["beanie", .5, .45, "The Gardens beanie", 482, 150, .05],
+  ["silverware", .5, .4, "With the silverware", 772, 172, -.045],
+  ["trophyNight", .3, .45, "Trophy nights", 206, 388, .06],
+  ["crestJersey", .5, .4, "The crest on his chest", 500, 394, -.05],
+  ["smile", .5, .45, "That smile", 778, 386, .07]
+];
+function prints(u) {
+  velvet();
+  const push = 1 + .05 * easeInOut(seg(u, 0, 9));
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(push, push);
+  ctx.translate(-W / 2, -H / 2);
+  PRINTS.forEach(([key, fx, fy, label, x, y, rot], i) => {
+    const p = easeOut(seg(u, .2 + i * 1.15, 1.0 + i * 1.15));
+    if (p <= 0) return;
+    const s = 1.35 - .35 * p, pw = 236, ph = 226;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot + (1 - p) * .25);
+    ctx.scale(s, s);
+    alpha(p);
+    ctx.shadowColor = "rgba(0,0,0,.55)";
+    ctx.shadowBlur = 24 * p;
+    ctx.shadowOffsetY = 10 * p;
+    ctx.fillStyle = "#f7f1e1";
+    ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
+    ctx.shadowColor = "transparent";
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-pw / 2 + 10, -ph / 2 + 10, pw - 20, ph - 54);
+    ctx.clip();
+    cover(IM[key], fx, fy, 1.02, -pw / 2 + 10, -ph / 2 + 10, pw - 20, ph - 54);
+    ctx.restore();
+    text(label, 0, ph / 2 - 16, "italic 400 19px " + SERIF, "#3a3226", "center");
+    ctx.restore();
+  });
+  ctx.restore();
+  alpha(1);
+  vignette(.35);
+}
+
+/* 21 to 25.5 s: his verse */
+function verse(u) {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+  ctx.filter = "grayscale(1) brightness(.42)";
+  cover(IM.prayer, .5, .4, 1.04 + .06 * seg(u, 0, 4.5), 0, 0, W, H);
+  ctx.filter = "none";
+  ctx.fillStyle = "rgba(11,42,29,.55)";
+  ctx.fillRect(0, 0, W, H);
+  vignette(.8);
+  const words = "If God be for us, who can be against us?".split(" ");
+  ctx.font = "italic 400 46px " + SERIF;
+  const line1 = words.slice(0, 5), line2 = words.slice(5);
+  [[line1, 222], [line2, 284]].forEach(([ws, y], li) => {
+    const full = ws.join(" "), w = ctx.measureText(full).width;
+    let x = W / 2 - w / 2;
+    ws.forEach((wd, wi) => {
+      const k = li * 5 + wi, p = easeOut(seg(u, .4 + k * .2, 1 + k * .2));
+      ctx.font = "italic 400 46px " + SERIF;
+      rise(wd, x, y, "italic 400 46px " + SERIF, CREAM, p);
+      ctx.font = "italic 400 46px " + SERIF;
+      x += ctx.measureText(wd + " ").width;
+    });
+  });
+  goldRule(W / 2, 326, 160, easeInOut(seg(u, 2.4, 3)));
+  rise("ROMANS 8:31", W / 2, 372, "800 24px " + DISPLAY, BRASS_HI, easeOut(seg(u, 2.7, 3.3)), "center", 6);
+}
+
+/* 25.5 to 30 s: forever Gardens */
+function finale(u) {
+  velvet();
+  candle(W / 2 + 250, 452, .7, u + 30, 1);
+  candle(W / 2 - 250, 452, .7, u + 31.3, 1);
+  const s = easeOut(seg(u, .2, 1));
+  if (IM.crest && s > 0) { alpha(s); ctx.drawImage(IM.crest, W / 2 - 46, 52 + (1 - s) * 10, 92, 103); alpha(1); }
+  rise("OOM CHARLES", W / 2, 248, "900 92px " + DISPLAY, CREAM, easeOut(seg(u, .5, 1.3)), "center", 5);
+  rise("Forever Gardens", W / 2, 302, "italic 400 40px " + SERIF, BRASS_HI, easeOut(seg(u, 1, 1.8)), "center");
+  goldRule(W / 2, 330, 220, easeInOut(seg(u, 1.4, 2.2)));
+  rise("The club remembers him with love and gratitude.", W / 2, 378, "400 23px " + SERIF, CREAM, easeOut(seg(u, 1.8, 2.6)), "center");
+  alpha(seg(u, 3.9, 4.5));
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+  alpha(1);
+}
+
+const SCENES = [
+  [0, 5.5, opening],
+  [5.5, 12, portrait],
+  [12, 21, prints],
+  [21, 25.5, verse],
+  [25.5, 30, finale]
+];
+const FADE = .9;
+function draw(t) {
+  ctx.globalAlpha = 1;
+  SCENES.forEach(([a, b, f]) => {
+    if (t < a || t >= b + FADE) return;
+    BASE = a === 0 ? 1 : easeInOut(seg(t, a, a + FADE));
+    ctx.save();
+    ctx.globalAlpha = BASE;
+    f(t - a);
+    ctx.restore();
+  });
+  BASE = 1;
+  if (t < 29.4) motes(t);
+  if (t < .8) { ctx.fillStyle = `rgba(0,0,0,${1 - t / .8})`; ctx.fillRect(0, 0, W, H); }
+}
+
+async function record() {
+  const types = ["video/mp4;codecs=avc1.4d002a", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+  const type = types.find(t => MediaRecorder.isTypeSupported(t));
+  draw(0);
+  const mr = new MediaRecorder(cv.captureStream(30), { mimeType: type, videoBitsPerSecond: 1200000 });
+  const chunks = [], stopped = new Promise(r => { mr.onstop = r; });
+  mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  mr.start(1000);
+  let poster = null;
+  const t0 = performance.now();
+  await new Promise(done => {
+    (function frame(now) {
+      const t = (now - t0) / 1000;
+      if (t >= DUR) { done(); return; }
+      draw(t);
+      if (!poster && t >= 28) poster = new Promise(r => cv.toBlob(r, "image/jpeg", .85));
+      requestAnimationFrame(frame);
+    })(t0);
+  });
+  mr.stop();
+  await stopped;
+  const ext = type.startsWith("video/mp4") ? "mp4" : "webm";
+  await fetch(`/save?name=${OUT_NAME}.${ext}`, { method: "POST", body: new Blob(chunks, { type }) });
+  await fetch(`/save?name=${OUT_NAME}.jpg`, { method: "POST", body: await poster });
+  await fetch("/done", { method: "POST" });
+}
+
+Promise.all([
+  ...Object.entries(IMAGES).map(([k, src]) => load(k, src)),
+  document.fonts.load("900 40px " + DISPLAY), document.fonts.load("800 24px " + DISPLAY),
+  document.fonts.load("400 20px " + SERIF), document.fonts.load("italic 400 20px " + SERIF)
+]).then(() => {
+  const at = parseFloat(location.hash.slice(1));
+  if (new URLSearchParams(location.search).has("record")) { record(); return; }
+  if (!isNaN(at)) { draw(at); return; }   // _make-charles-advert.html#12 shows the frame at 12 seconds
+  const t0 = performance.now();
+  (function loop(now) { draw(((now - t0) / 1000) % DUR); requestAnimationFrame(loop); })(t0);
+});
+</script>
+</body>
+</html>
