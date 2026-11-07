@@ -5,7 +5,7 @@ Serves the website and stores member registrations in a SQLite database
 
   python server.py                 start the site on http://localhost:8080
   python server.py --port 9000     use another port
-  python server.py --export        write members, contributions, subscribers and predictions to CSV
+  python server.py --export        write members, contributions, subscribers, predictions and AGM 2026 to CSV
   python server.py --winner "2026-10-17 First team v Harlequins Rugby Club" 24-17
                                    list the closest Predict the Score guesses for a match
 
@@ -15,6 +15,7 @@ The website posts JSON to:
                             photos sent with a memory go into the memorial-uploads folder)
   POST /api/subscribe       newsletter email sign-up
   POST /api/predictions     Predict the Score entry
+  POST /api/agm             AGM 2026 attendance registration
   POST /api/visit           visitor counter (adds one, returns the new count)
   POST /api/candles         Wall of Remembrance candles: {"name": ...} lights one for that person;
                             either way it returns the number lit for everyone on the wall
@@ -44,7 +45,8 @@ DB = ROOT / "members.db"
 PRIVATE = {"members.db", "members.db-journal", "server.py", "build_gallery.py", "make_deploy.py",
            "start website (local test).bat", "prepare upload for cloudflare.bat", "setup-google-and-cloudflare.md"}  # plus every *-export.csv
 EXPORTS = {"members": "members-export.csv", "contributions": "contributions-export.csv",
-           "subscribers": "subscribers-export.csv", "predictions": "predictions-export.csv"}
+           "subscribers": "subscribers-export.csv", "predictions": "predictions-export.csv",
+           "agm2026": "agm2026-export.csv"}
 
 FIELDS = {  # name: (required, max length)
     "first_name": (True, 60), "surname": (True, 60), "date_of_birth": (True, 10),
@@ -65,6 +67,11 @@ MAX_PHOTOS = 5
 UPLOADS = ROOT / "memorial-uploads"  # photos sent with memories, waiting for approval (never served)
 ROLES = {"Fan or supporter", "Club official", "Sponsor", "Player", "Parent", "Community organisation"}
 CATEGORIES = {"Club", "Youth", "Charity", "Church", "Fundraiser", "Community"}
+AGM_FIELDS = {"first_name": (True, 60), "surname": (True, 60), "phone": (True, 20),
+              "email": (True, 120), "address_line": (True, 120), "suburb": (False, 60), "town": (True, 60),
+              "attending_as": (True, 40)}  # name: (required, max length)
+AGM_ROLES = {"Executive member", "Coaching team", "Player", "Supporter", "Sponsor", "Observer"}
+AGM_CLOSES = datetime.fromisoformat("2026-11-29T14:00:00+02:00")  # online registration closes when the meeting starts
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 PHONE = re.compile(r"^\+?[0-9 ()-]{9,20}$")
 
@@ -96,6 +103,12 @@ def connect():
         match TEXT NOT NULL, kickoff TEXT NOT NULL, name TEXT NOT NULL, phone TEXT NOT NULL,
         phone_digits TEXT NOT NULL, us INTEGER NOT NULL, them INTEGER NOT NULL, submitted_at TEXT NOT NULL)""")
     con.execute("CREATE UNIQUE INDEX IF NOT EXISTS predictions_one_each ON predictions (match, phone_digits)")
+    con.execute(f"""CREATE TABLE IF NOT EXISTS agm2026 (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        {", ".join(f"{k} TEXT" for k in AGM_FIELDS)},
+        person TEXT NOT NULL,
+        registered_at TEXT NOT NULL)""")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS agm2026_one_each ON agm2026 (person)")
     con.execute("CREATE TABLE IF NOT EXISTS visits (id INTEGER PRIMARY KEY CHECK (id = 1), count INTEGER NOT NULL)")
     con.execute("CREATE TABLE IF NOT EXISTS candles (name TEXT PRIMARY KEY, count INTEGER NOT NULL)")
     return con
@@ -230,6 +243,31 @@ def validate_prediction(data):
             "phone_digits": re.sub(r"\D", "", phone)[-9:], "us": us, "them": them}, None
 
 
+def validate_agm(data):
+    if datetime.now(timezone.utc) >= AGM_CLOSES:
+        return None, "Online registration has closed. Please register at the hall."
+    clean = {}
+    for name, (required, limit) in AGM_FIELDS.items():
+        value = str(data.get(name) or "").strip()
+        if required and not value:
+            return None, f"Please fill in {name.replace('_', ' ')}."
+        if len(value) > limit:
+            return None, f"{name.replace('_', ' ').capitalize()} is too long."
+        clean[name] = value
+    if not PHONE.match(clean["phone"]):
+        return None, "Please enter a valid contact number."
+    if not EMAIL.match(clean["email"]):
+        return None, "Please enter a valid email address."
+    if clean["attending_as"] not in AGM_ROLES:
+        return None, "Please choose how you attend."
+    if data.get("consent") is not True:
+        return None, "Please tick the box so the club can register you."
+    # One registration per person: the same name with the same contact number (last 9 digits)
+    name = " ".join(f"{clean['first_name']} {clean['surname']}".lower().split())
+    clean["person"] = f"{name}|{re.sub(r'[^0-9]', '', clean['phone'])[-9:]}"
+    return clean, None
+
+
 def now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -325,7 +363,7 @@ class Handler(SimpleHTTPRequestHandler):
                 pass  # the browser jumped elsewhere in the video and dropped this request
 
     def do_POST(self):
-        route = {"/api/members": self.post_member, "/api/contributions": self.post_contribution,
+        route = {"/api/members": self.post_member, "/api/contributions": self.post_contribution, "/api/agm": self.post_agm,
                  "/api/subscribe": self.post_subscribe, "/api/predictions": self.post_prediction,
                  "/api/visit": self.post_visit, "/api/candles": self.post_candles}.get(self.path.split("?")[0])
         if not route:
@@ -413,6 +451,17 @@ class Handler(SimpleHTTPRequestHandler):
             counts = dict(con.execute("SELECT name, count FROM candles"))
         self.send_json(200, {"ok": True, "counts": counts})
 
+    def post_agm(self, data):
+        clean, error = validate_agm(data)
+        if error:
+            return self.send_json(400, {"error": error})
+        try:
+            new_id = insert("agm2026", clean | {"registered_at": now()})
+        except sqlite3.IntegrityError:
+            return self.send_json(409, {"error": "You are already registered for the AGM."})
+        self.log_message("New AGM 2026 registration (id %s)", new_id)
+        self.send_json(201, {"ok": True})
+
     def post_prediction(self, data):
         clean, error = validate_prediction(data)
         if error:
@@ -457,7 +506,7 @@ def export():
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8080)
-    ap.add_argument("--export", action="store_true", help="write members, contributions, subscribers and predictions to CSV files and exit")
+    ap.add_argument("--export", action="store_true", help="write members, contributions, subscribers, predictions and AGM 2026 registrations to CSV files and exit")
     ap.add_argument("--winner", nargs=2, metavar=("MATCH", "SCORE"), help='closest predictions for a match, e.g. --winner "2026-10-17 First team v Harlequins Rugby Club" 24-17')
     args = ap.parse_args()
     if args.winner:

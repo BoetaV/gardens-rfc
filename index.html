@@ -109,17 +109,32 @@
 
 <main id="main">
 
-<!-- HERO -->
-<section class="hero">
-  <video class="hero-img" autoplay muted loop playsinline preload="auto" poster="assets/img/gameday/03.jpg" aria-hidden="true">
-    <source src="assets/video/hero.webm" type="video/webm">
-    <source src="assets/video/hero.mp4" type="video/mp4">
-  </video>
+<!-- HERO: the 3D stadium (assets/js/hero-3d.js) -->
+<section class="hero hero-3d" aria-label="Gardens RFC">
+  <img class="hero-img" src="assets/img/gameday/03.jpg" alt="" aria-hidden="true">
+  <canvas class="hero-stage" id="hero-stage" aria-hidden="true"></canvas>
   <div class="hero-shade"></div>
+  <div class="hero-copy">
+    <p class="hero-kicker">Uitenhage · Est. 1932</p>
+    <h1 class="hero-name">Gardens RFC</h1>
+    <p class="hero-sub">Green, white and red since 1932. Home of Die Hok – Derrick Ferreira Stadium.</p>
+    <div class="hero-cta">
+      <a class="hero-btn hero-btn-red" href="matches.html">Fixtures &amp; Results</a>
+      <a class="hero-btn hero-btn-gold" href="join-as-a-player.html">Join the Club</a>
+    </div>
+  </div>
+  <a class="hero-scroll" href="#welcome">Scroll</a>
+  <div class="hero-loader" aria-hidden="true"><img src="assets/img/hero3d/crest.webp" alt="" width="90"></div>
+</section>
+<!-- async: the 3D starts as soon as it arrives, without waiting for the scripts at the end of the page -->
+<script src="assets/js/hero-3d.js" async></script>
+
+<!-- WELCOME: the flag and headline, match day card and sponsor TV, just below the 3D hero -->
+<section class="hero-intro section-dark" id="welcome">
   <div class="hero-body">
     <div class="hero-title">
       <canvas class="hero-flag club-flag" id="hero-flag" width="260" height="300" role="img" aria-label="The Gardens RFC flag with the club crest, flying from a flagpole"><img src="assets/img/logo.png" alt="Gardens RFC Uitenhage 1932 crest" width="126" height="142"></canvas>
-      <h1 aria-label="Born in the Garden Town. Built on respect."><span aria-hidden="true"><span class="line"><span class="w"><span style="--i:0">Born</span></span> <span class="w"><span style="--i:1">in</span></span> <span class="w"><span style="--i:2">the</span></span> <span class="w"><span style="--i:3">Garden</span></span> <span class="w"><span style="--i:4">Town.</span></span></span><span class="line"><span class="w"><span style="--i:5">Built</span></span> <span class="w"><span style="--i:6">on</span></span> <span class="w"><span style="--i:7">respect.</span></span></span></span></h1>
+      <h2 aria-label="Born in the Garden Town. Built on respect."><span aria-hidden="true"><span class="line"><span class="w"><span style="--i:0">Born</span></span> <span class="w"><span style="--i:1">in</span></span> <span class="w"><span style="--i:2">the</span></span> <span class="w"><span style="--i:3">Garden</span></span> <span class="w"><span style="--i:4">Town.</span></span></span><span class="line"><span class="w"><span style="--i:5">Built</span></span> <span class="w"><span style="--i:6">on</span></span> <span class="w"><span style="--i:7">respect.</span></span></span></span></h2>
     </div>
     <p class="hero-lede">Gardens Rugby Football Club has played in Uitenhage since 1932. Families across the town have worn the green, white and red.</p>
     <div class="hero-actions">

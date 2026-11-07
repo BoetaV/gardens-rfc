@@ -14,7 +14,7 @@
     if (!plain(v)) return v;
     const out = {};
     for (const k in v) {
-      const bad = typeof v[k] === "string" && v[k] && (["link", "file", "url"].includes(k) ? !safe.test(v[k]) : k === "photo" && !/^assets\//.test(v[k]));
+      const bad = typeof v[k] === "string" && v[k] && (["link", "file", "url", "page"].includes(k) ? !safe.test(v[k]) : k === "photo" && !/^assets\//.test(v[k]));
       out[k] = bad ? "" : clean(v[k]);
     }
     return out;

@@ -11,7 +11,7 @@
 
   window.GardensSend = async function (form, body) {
     if (mode === "closed") throw Object.assign(new Error(SOON), { closed: true });
-    const local = { members: "api/members", contributions: "api/contributions", subscribe: "api/subscribe", predictions: "api/predictions", candles: "api/candles" };
+    const local = { members: "api/members", contributions: "api/contributions", subscribe: "api/subscribe", predictions: "api/predictions", candles: "api/candles", agm: "api/agm" };
     let r;
     try {
       r = mode === "google"
@@ -30,7 +30,7 @@
   // Say so at the top of each form, and switch off its fields so nobody fills it in for nothing.
   // Buttons that only close a dialog stay working.
   const wa = (window.GARDENS && window.GARDENS.whatsapp) || "";
-  ["join-form", "contrib-form", "nl-sub", "mem-form", "pr-form"].forEach(id => {
+  ["join-form", "contrib-form", "nl-sub", "mem-form", "pr-form", "agm-form"].forEach(id => {
     const form = document.getElementById(id);
     if (!form) return;
     const note = document.createElement("p");

@@ -7,6 +7,7 @@ and the _headers security file). Everything private stays behind: members.db, ex
 zip file, the original videos folder and the Google script.
 Then drag the "deploy" folder onto Cloudflare Pages (see SETUP-GOOGLE-AND-CLOUDFLARE.md).
 """
+import hashlib
 import re
 import shutil
 from pathlib import Path
@@ -19,6 +20,23 @@ OUT = ROOT / "deploy"
 # favicon.ico sits in the root because browsers ask for /favicon.ico on their own
 PUBLIC = sorted(p.name for p in ROOT.glob("*.html") if not p.name.startswith("_")) + ["assets", "_headers", "favicon.ico"]
 MAX_FILE = 25 * 1024 * 1024  # Cloudflare Pages limit per file
+
+
+def stamp_versions():
+    """Give every script and stylesheet link in the uploaded pages a fingerprint of the file, for example
+    assets/js/data.js?v=8447529c. When a file changes its address changes too, so no browser, company
+    proxy or other cache can keep using an old copy. Only the deploy folder is changed, never the originals."""
+    def stamp(match):
+        attr, path = match.group(1), match.group(2)
+        f = OUT / path
+        if not f.is_file():
+            return match.group(0)
+        return f'{attr}="{path}?v={hashlib.md5(f.read_bytes()).hexdigest()[:8]}"'
+    for page in OUT.glob("*.html"):
+        text = page.read_text(encoding="utf-8")
+        new = re.sub(r'(src|href)="(assets/[^"?#]+\.(?:js|css))"', stamp, text)
+        if new != text:
+            page.write_text(new, encoding="utf-8", newline="")
 
 
 def main():
@@ -38,6 +56,7 @@ def main():
     for f in [f for f in OUT.rglob("*") if f.is_file()]:
         if f.resolve() not in wanted:
             f.unlink()  # left over from an earlier upload (a removed photo, an old page)
+    stamp_versions()
     for d in sorted((d for d in OUT.rglob("*") if d.is_dir()), key=lambda d: len(d.parts), reverse=True):
         try:
             d.rmdir()  # only succeeds when empty

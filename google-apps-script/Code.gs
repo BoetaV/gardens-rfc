@@ -17,6 +17,9 @@
  * Candles lit on the Wall of Remembrance are kept there too: a count for each name.
  *   Predictions    Predict the Score entries. After a match, use the menu
  *                  Gardens RFC > Find the prediction winner.
+ *   AGM2026        attendance registrations for the Annual General Meeting on 29 November 2026
+ *                  (the Announcements notice on news.html). The tab appears the next time the Sheet is
+ *                  opened. The form closes when the meeting starts (AGM_CLOSES).
  *
  * Website content: the menu Gardens RFC > Set up website content tabs adds tabs the club edits to
  * change the website (fixtures, announcements, birthdays, the newsletter and more; see CONTENT below).
@@ -24,7 +27,7 @@
  */
 
 // Optional: an email address to tell when someone registers or sends a story. Leave "" for none.
-const NOTIFY_EMAIL = "";
+const NOTIFY_EMAIL = "gardensrfc.1932@gmail.com";
 
 // The visitor counter starts from this number the very first time it is used.
 const START_VISITS = 0;
@@ -49,6 +52,11 @@ const SHEETS = {
   predictions: {
     name: "Predictions",
     columns: ["Submitted at", "Match", "Kick-off", "Name", "Cell number", "Gardens", "Opponent", "Contact consent"]
+  },
+  agm2026: {
+    name: "AGM2026",
+    columns: ["Registered at", "First name", "Surname", "Contact number", "Email", "Street address",
+              "Suburb", "Town", "Attending as", "POPIA consent"]
   }
 };
 
@@ -59,6 +67,8 @@ const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const PHONE = /^\+?[0-9 ()-]{9,20}$/;
 const PHOTO_FOLDER = "Gardens RFC memorial photos";
 const MAX_PHOTOS = 5;
+const AGM_ROLES = ["Executive member", "Coaching team", "Player", "Supporter", "Sponsor", "Observer"];
+const AGM_CLOSES = new Date("2026-11-29T14:00:00+02:00");  // online registration closes when the meeting starts
 
 function doPost(e) {
   let data;
@@ -76,6 +86,7 @@ function doPost(e) {
     if (data.form === "contributions") return reply(saveContribution(data));
     if (data.form === "subscribe") return reply(saveSubscriber(data));
     if (data.form === "predictions") return reply(savePrediction(data));
+    if (data.form === "agm") return reply(saveAgm(data));
     if (data.form === "visit") return reply(countVisit());
     if (data.form === "candles") return reply(lightCandle(data));
     return reply({ ok: false, error: "Unknown form." });
@@ -86,8 +97,10 @@ function doPost(e) {
 
 // Visiting the web app address in a browser shows this, which is handy for checking it is live.
 // With ?content=1 on the end it returns the website content from the content tabs instead.
+// With ?photo=<id> it returns one photo from the Wall of Remembrance Drive folder (for functions/api/photo.js).
 function doGet(e) {
   if (e && e.parameter && e.parameter.content) return reply({ ok: true, content: websiteContent() });
+  if (e && e.parameter && e.parameter.photo) return reply(wallPhoto(String(e.parameter.photo)));
   return reply({ ok: true, message: "Gardens RFC forms are connected." });
 }
 
@@ -212,6 +225,37 @@ function saveSubscriber(d) {
   return { ok: true };
 }
 
+/* ---------- AGM 2026 attendance registration ---------- */
+function saveAgm(d) {
+  if (new Date() >= AGM_CLOSES) return fail("Online registration has closed. Please register at the hall.");
+  const f = {};
+  const fields = { first_name: [1, 60], surname: [1, 60], phone: [1, 20], email: [1, 120],
+    address_line: [1, 120], suburb: [0, 60], town: [1, 60], attending_as: [1, 40] };
+  for (const name in fields) {
+    const v = clean(d[name]);
+    if (fields[name][0] && !v) return fail(`Please fill in ${name.replace(/_/g, " ")}.`);
+    if (v.length > fields[name][1]) return fail(`${label(name)} is too long.`);
+    f[name] = v;
+  }
+  if (!PHONE.test(f.phone)) return fail("Please enter a valid contact number.");
+  if (!EMAIL.test(f.email)) return fail("Please enter a valid email address.");
+  if (AGM_ROLES.indexOf(f.attending_as) < 0) return fail("Please choose how you attend.");
+  if (d.consent !== true) return fail("Please tick the box so the club can register you.");
+
+  // One registration per person: the same name with the same contact number (last 9 digits, so 071... and +2771... match)
+  const sheet = tab("agm2026");
+  const rows = sheet.getLastRow() - 1;
+  const person = (first, last, phone) => [first, last].join(" ").toLowerCase().replace(/\s+/g, " ") + "|" + String(phone).replace(/\D/g, "").slice(-9);
+  const me = person(f.first_name, f.surname, f.phone);
+  if (rows > 0 && sheet.getRange(2, 2, rows, 3).getValues().some(r => person(r[0], r[1], r[2]) === me))
+    return fail("You are already registered for the AGM.");
+  sheet.appendRow(safe([new Date(), f.first_name, f.surname, f.phone, f.email, f.address_line,
+    f.suburb, f.town, f.attending_as, "Yes"]));
+  notify("AGM registration: " + f.first_name + " " + f.surname,
+    f.first_name + " " + f.surname + " (" + f.attending_as + ") registered for the AGM. " + (rows + 1) + " registered so far.");
+  return { ok: true };
+}
+
 /* ---------- Predict the Score ---------- */
 function savePrediction(d) {
   const match = clean(d.match), name = clean(d.name), phone = clean(d.phone);
@@ -238,6 +282,7 @@ function savePrediction(d) {
 
 // Adds the Gardens RFC menu to the sheet
 function onOpen() {
+  tab("agm2026");  // the AGM 2026 registrations tab, ready before the first registration arrives
   SpreadsheetApp.getUi().createMenu("Gardens RFC")
     .addItem("Find the prediction winner", "findWinner")
     .addSeparator()
@@ -296,6 +341,11 @@ function lightCandle(d) {
 // kind: "date", "time", "month", "birthday", "number", or empty for text.
 // A tab that does not exist yet leaves that part of the website as it is in data.js.
 const CONTENT_TZ = "Africa/Johannesburg";
+// Photos for the Wall of Remembrance tab: a private folder in the club's Drive, made by Set up website content tabs
+const WALL_FOLDER = "Website - Wall of Remembrance";
+const MAX_WALL_PHOTO = 5 * 1024 * 1024;
+// Photo position: where the photo sits in its oval frame
+const POSITIONS = { top: "50% 15%", centre: "50% 50%", center: "50% 50%", bottom: "50% 85%", left: "0% 50%", right: "100% 50%" };
 const CONTENT = [
   { key: "fixtures", name: "Fixtures", columns: [
     ["Date", "date", "The day of the match."],
@@ -322,6 +372,15 @@ const CONTENT = [
     ["Memorial service", "", "Day, time and place. Leave empty to show To be confirmed."],
     ["Funeral service", "", "Day, time and place. Leave empty to show To be confirmed."],
     ["Show until", "date", "Optional. The notice disappears after this day."]] },
+  { key: "wall", name: "Wall of Remembrance", columns: [
+    ["Name", "", "One row for each person, in the order they appear on the Wall. Ask the family first."],
+    ["Years", "", "Optional, for example 1950 - 2026."],
+    ["Born", "date", "Optional. On their birthday the Wall marks them and visitors can light another candle."],
+    ["Passed", "date", "Optional. The same on the day they passed on."],
+    ["About", "", "Optional. A sentence about them, for example A former rugby player of our club."],
+    ["Photo", "", "The file name of their photo in the Drive folder \"Website - Wall of Remembrance\", for example Jan Smith.jpg. Several photos: separate the names with commas. Keep each photo under 5 MB."],
+    ["Photo position", "", "Optional: top, centre, bottom, left or right, to move the photo in its frame."],
+    ["Memorial page", "", "Optional. Only for someone with their own memorial page, for example oom-charles.html."]] },
   { key: "condolences", name: "Condolence messages", columns: [
     ["Remembering", "", "The name exactly as in the Bereavements tab."],
     ["From", "", "The name of the person who sent it. Ask them first, or use their first name only."],
@@ -424,6 +483,34 @@ const SEED = { "fixtures": [
     [ "2026-10-14", "Club", "Write for the November newsletter", "Stories for the November issue of Gardens Monthly close on 25 October. Fans, officials, players, parents and sponsors are all welcome.", "2026-10-25", "Contribute a story", "#newsletter" ] ],
   "bereavements": [
     [ "2026-10-18", "Joan de Monk", "1944 - 2026", "assets/img/notices/joan-de-monk.jpg", "It is with deep sadness that Gardens Rugby Football Club shares the passing of Joan de Monk.\n\nThe club sends its heartfelt condolences to the de Monk family. We keep the family in our thoughts and prayers during this difficult time.", "", "", "" ] ],
+  "wall": [
+    ["John Henry Albrecht","","","","","676735121_26513750058245375_6634709405672558334_n.jpg","50% 25%",""],
+    ["Jakob Baartman","","","","","671284273_26479550414998673_8500484670565192523_n.jpg","0% 50%",""],
+    ["Achmat Bassier","1965 - 2026","","","","656074313_26202283362725381_1650392835165379201_n.jpg","0% 50%",""],
+    ["Kutazwa Miranda Binda","1971 - 2026","","","","674066206_26472862275667487_7133206931835421850_n.jpg","0% 50%",""],
+    ["Nothemba Dingaan","1939 - 2023","","","","490126912_9540458376001142_7985440757208849908_n.jpg","50% 20%",""],
+    ["Greg \"Paps\" Hendricks","","","","","487506516_9469856756394638_5070308824341161742_n.jpg","",""],
+    ["Sophie Karools","1953 - 2026","","","","669735330_26468862726067442_4145208107554270281_n.jpg, 673676106_26483984624555252_2597675058066337723_n.jpg","0% 50%",""],
+    ["James Kayster","1956 - 2023","1956-11-05","2023-09-15","","490822159_9551919584855021_7367140634775878077_n.jpg","50% 40%",""],
+    ["Nolan \"Whitey\" Ketteldas","1971 - 2023","1971-09-16","2023-06-14","","490678965_9527385563975090_4678257834754631666_n.jpg","",""],
+    ["Flekkie Klaasen","","","","","674540622_26485951761025205_5551334206258108901_n.jpg","0% 50%",""],
+    ["Chesley Kriel","1985 - 2026","","","A former rugby player of our club.","673855625_26458428007110914_2437479740309652077_n.jpg, 676777767_26561745500112497_6058818867734682116_n.jpg","50% 30%",""],
+    ["Beauline \"Baba\" Louw","1986 - 2022","","","","485634850_9385991454781169_3213644752366459656_n.jpg","",""],
+    ["Charles Lovemore","","","","Oom Charles, part of the Gardens story on the touchline and in the trophy photos.","514401335_23896508446636229_2720682684596891407_n.jpg","50% 15%","oom-charles.html"],
+    ["John Tom Maarman","","","","A former rugby player of our club.","678564134_26525116380442076_3948651533338486219_n.jpg","50% 10%",""],
+    ["Abraham \"Takooza\" Meyers","1956 - 2023","1956-01-21","2023-03-01","","488816439_9490001677713479_1291565875979918765_n.jpg, 489168980_9490015464378767_1106535021256993493_n.jpg","50% 60%",""],
+    ["Monica Myburgh","","","","","485149784_9388863564493958_7138889396840695547_n.jpg","",""],
+    ["Judy Oersen","","","","","490792197_9531123330267980_9021820600401053803_n.jpg","",""],
+    ["Regi Peterse","","","","","126251658_3482433185137055_3777392765930056098_n.jpg","100% 60%",""],
+    ["Eric Colin Sauls","1956 - 2023","1956-03-27","2023-10-05","A Gardens legend who wore the Springbok jersey.","490834316_9557828250930821_7094082138681251683_n.jpg, 491467726_9558428294204150_337915281953012204_n.jpg","50% 10%",""],
+    ["Leslie Simons","","","","","36028986_1751641691549555_198232042293428224_n.jpg","0% 40%",""],
+    ["Nellie Swartbooi","","","","","490441865_9507868969260083_55031101832747827_n.jpg","",""],
+    ["Niklaas \"Njama\" Swartz","","","","","486046249_9388871681159813_7548884301833894563_n.jpg","",""],
+    ["Edwin Theron","1989 - 2022","1989-05-25","2022-12-25","A great and loving husband.","487506923_9469858963061084_6354438906750442596_n.jpg, 487503636_9469852369728410_4662887889604630567_n.jpg","50% 20%",""],
+    ["Brumilda Uithaler","1983 - 2026","","","","647009831_26042507285369657_9061508346035739113_n.jpg","0% 50%",""],
+    ["Elizabeth \"Aunty Lysa\" Uithaler","","","","","672021054_26486333594320355_4930442581326328220_n.jpg, 678291788_26530874556532925_5602948029151913743_n.jpg","0% 50%",""],
+    ["Sydney Bonile Williams","1962 - 2023","","","","488657669_9477287182318262_3876284526634242768_n.jpg","0% 50%",""],
+    ["Hendry \"Biela\" Zeekoei","","","","","490514767_9536897363023910_6688947620512101335_n.jpg, 490593127_9536864353027211_8464398949530763696_n.jpg","",""] ],
   "condolences": [
     [ "Joan de Monk", "Sharon Maarman", "Sag rus my auntie 🙏🙏🙏🙏" ],
     [ "Joan de Monk", "Tercia Muller", "My sincere condolences to the Monk family." ],
@@ -528,9 +615,13 @@ function setUpContent() {
     def.columns.forEach((c, i) => { if (!c[1] && sheet.getColumnWidth(i + 1) > 360) sheet.setColumnWidth(i + 1, 360); });
     added.push(def.name);
   });
+  if (!DriveApp.getFoldersByName(WALL_FOLDER).hasNext()) {
+    DriveApp.createFolder(WALL_FOLDER);   // private: the website reads photos through this script
+    added.push("the Drive folder \"" + WALL_FOLDER + "\"");
+  }
   clearContentCache();
   SpreadsheetApp.getUi().alert(added.length
-    ? "Added these tabs: " + added.join(", ") + ".\n\nThe website now shows what is in them. Changes appear within a minute or two."
+    ? "Added: " + added.join(", ") + ".\n\nThe website now shows what is in them. Changes appear within a minute or two."
     : "All the website content tabs are already there.");
 }
 
@@ -602,6 +693,31 @@ function websiteContent() {
     date: r["Posted"], name: r["Name"], years: r["Years"], message: r["Message"], until: r["Show until"],
     photo: /^assets\/img\/[\w\/ .-]+\.(jpe?g|png|webp)$/i.test(r["Photo"]) ? r["Photo"] : "",
     services: [{ name: "Memorial service", details: r["Memorial service"] }, { name: "Funeral service", details: r["Funeral service"] }] })));
+  // Wall of Remembrance: photo names are looked up in the Drive folder; a name that is not there is taken
+  // as a photo already on the website (assets/img/memorial)
+  const wall = read("wall");
+  if (wall) {
+    const found = DriveApp.getFoldersByName(WALL_FOLDER);
+    const ids = {};
+    if (found.hasNext()) {
+      const files = found.next().getFiles();
+      while (files.hasNext()) {
+        const f = files.next();
+        if (/^image\//.test(f.getMimeType())) ids[f.getName().toLowerCase()] = f.getId();
+      }
+    }
+    const position = v => POSITIONS[String(v).toLowerCase()] || (/^\d{1,3}% \d{1,3}%$/.test(v) ? v : "");
+    out.memorials = { memorial: { people: wall.filter(r => has(r["Name"])).map(r => {
+      const p = { name: r["Name"], years: r["Years"], born: r["Born"], passed: r["Passed"], about: r["About"],
+        photos: String(r["Photo"]).split(",").map(s => s.trim()).filter(Boolean)
+          .map(n => (ids[n.toLowerCase()] ? "drive:" + ids[n.toLowerCase()] : n)) };
+      const focus = position(r["Photo position"]);
+      if (focus) p.focus = focus;
+      const page = cleanLink(r["Memorial page"]);
+      if (page) p.page = page;
+      return p;
+    }) } };
+  }
   const condolences = read("condolences");
   if (out.bereavements && condolences) out.bereavements.forEach(b => {
     b.messages = condolences.filter(r => r["Remembering"] === b.name && has(r["Message"])).map(r => ({ name: r["From"], text: r["Message"] }));
@@ -691,6 +807,24 @@ function cellValue(v, shown, kind, tz) {
   }
   if (kind === "number") return typeof v === "number" ? v : "";
   return v instanceof Date ? String(shown).trim() : String(v).trim();
+}
+
+// One photo for the website, only if it is an image in the Wall of Remembrance folder (never any other Drive file)
+function wallPhoto(id) {
+  if (!/^[\w-]{10,100}$/.test(id)) return fail("Not found.");
+  try {
+    const found = DriveApp.getFoldersByName(WALL_FOLDER);
+    if (!found.hasNext()) return fail("Not found.");
+    const folderId = found.next().getId();
+    const file = DriveApp.getFileById(id);
+    const parents = file.getParents();
+    let inFolder = false;
+    while (parents.hasNext()) if (parents.next().getId() === folderId) inFolder = true;
+    if (!inFolder || !/^image\//.test(file.getMimeType()) || file.getSize() > MAX_WALL_PHOTO) return fail("Not found.");
+    return { ok: true, type: file.getMimeType(), data: Utilities.base64Encode(file.getBlob().getBytes()) };
+  } catch (err) {
+    return fail("Not found.");
+  }
 }
 
 function num(v) {

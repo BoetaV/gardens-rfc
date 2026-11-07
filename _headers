@@ -6,7 +6,12 @@
 #   - inline styles, because the pages use style="..." attributes
 #   - Cloudflare Web Analytics, which Cloudflare adds to the pages on www.gardensrfc.com: its script
 #     (static.cloudflareinsights.com) and where it sends the visit counts (cloudflareinsights.com)
+#
+# Cache-Control: browsers and other caches check for a newer copy on every visit (a quick "has it changed?"
+# question), so a change to the site is never hidden behind an old copy. make_deploy.py also puts a version
+# fingerprint on every script and stylesheet link for the same reason.
 /*
+  Cache-Control: public, max-age=0, must-revalidate
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY

@@ -276,15 +276,6 @@ window.GardensBirthdays = {
   on(); window.addEventListener("scroll", on, { passive: true });
 })();
 
-/* Hero video: hold on the poster frame for visitors who prefer reduced motion */
-(function () {
-  const v = document.querySelector("video.hero-img");
-  if (!v) return;
-  const mq = matchMedia("(prefers-reduced-motion: reduce)");
-  const apply = () => { if (mq.matches) v.pause(); else v.play().catch(() => {}); };
-  apply(); mq.addEventListener("change", apply);
-})();
-
 /* Member registration: opens the form and sends it to the members database */
 (function () {
   const dlg = document.getElementById("join-dialog");
@@ -505,9 +496,44 @@ window.GardensBirthdays = {
   });
 })();
 
+/* AGM 2026 (news.html): the notice and its attendance registration. Taken down after the meeting date;
+   entries go to the AGM2026 tab of the club's Google Sheet. */
+(function () {
+  const box = document.getElementById("agm-2026");
+  if (!box) return;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });   // YYYY-MM-DD
+  if (box.dataset.until && today > box.dataset.until) { box.hidden = true; return; }
+  const form = document.getElementById("agm-form"), done = document.getElementById("agm-done");
+  const msg = form.querySelector(".jf-msg"), submit = form.querySelector("[type=submit]");
+  form.addEventListener("input", e => e.target.classList.remove("invalid"));
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    msg.textContent = "";
+    form.querySelectorAll(".invalid").forEach(el => el.classList.remove("invalid"));
+    const bad = [...form.elements].filter(el => el.willValidate && !el.checkValidity());
+    if (bad.length) {
+      bad.forEach(el => el.classList.add("invalid")); bad[0].focus();
+      msg.textContent = bad[0].name === "consent" ? "Please tick the box so the club can register you."
+        : bad[0].name === "attending_as" ? "Please choose how you attend." : "Please complete the highlighted fields.";
+      return;
+    }
+    const body = Object.fromEntries(new FormData(form));
+    body.consent = form.consent.checked;
+    submit.disabled = true; submit.setAttribute("aria-busy", "true");
+    try {
+      await window.GardensSend("agm", body);
+      form.reset(); form.hidden = true; done.hidden = false; done.focus();
+    } catch (err) { msg.textContent = err.message; }
+    finally { submit.disabled = false; submit.removeAttribute("aria-busy"); }
+  });
+  document.getElementById("agm-again").addEventListener("click", () => {
+    done.hidden = true; form.hidden = false; form.elements.first_name.focus();
+  });
+})();
+
 /* Hero headline gradient: one continuous sweep across each line, not one per word */
 (function () {
-  const h1 = document.querySelector(".hero-title h1");
+  const h1 = document.querySelector(".hero-title h2");
   if (!h1) return;
   function size() {
     const lines = [...h1.querySelectorAll(".line")];

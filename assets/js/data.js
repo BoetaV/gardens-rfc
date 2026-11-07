@@ -40,7 +40,7 @@ window.GARDENS = {
   // newsletter sign-ups) are saved. Paste the Google Apps Script web app address here
   // (see SETUP-GOOGLE-AND-CLOUDFLARE.md). Leave it empty to use the local test server.
   backend: {
-    googleScriptUrl: ""
+    googleScriptUrl: "https://script.google.com/macros/s/AKfycbx2Faeoq4g94NoGyVkEDMvAXT4Or1ls6mMLTemTcpw_PQTWLYyqcmNp2g98lZQzeyh4/exec"
   },
 
   // Live streaming. On match day: set on: true and paste the stream link. Afterwards set on: false.

@@ -8,7 +8,11 @@
   if (!w) return;
   const $ = id => document.getElementById(id);
   const files = (window.GARDENS_PHOTOS || {})[w.folder] || [];
-  const url = f => `assets/img/${encodeURIComponent(w.folder)}/${encodeURIComponent(f)}`;
+  // A photo is a file in the site's folder, or "drive:<id>" for one in the club's Google Drive folder
+  // (the Wall of Remembrance tab in the Google Sheet), served by functions/api/photo.js
+  const fromDrive = f => /^drive:[\w-]+$/.test(f);
+  const url = f => fromDrive(f) ? `api/photo?id=${encodeURIComponent(f.slice(6))}`
+    : `assets/img/${encodeURIComponent(w.folder)}/${encodeURIComponent(f)}`;
   const plain = s => s.replace(/["“”]/g, "").toLowerCase();
   const slug = s => "p-" + plain(s).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const view = kit.viewer();
@@ -21,8 +25,8 @@
   verse.querySelector("cite").textContent = w.verseRef ? `${w.verseRef} · The Gardens verse` : "";
   verse.hidden = !w.verse;
 
-  /* People: only photos that are really in the folder */
-  const people = (w.people || []).map(p => ({ ...p, photos: (p.photos || []).filter(f => files.includes(f)) }));
+  /* People: only photos that are really in the folder, or in the club's Drive folder */
+  const people = (w.people || []).map(p => ({ ...p, photos: (p.photos || []).filter(f => files.includes(f) || fromDrive(f)) }));
   const items = [], first = [];  // every notice in one list, so the viewer can go through the whole wall
   people.forEach(p => {
     first.push(items.length);

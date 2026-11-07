@@ -5,6 +5,10 @@
    is unavailable. A click or tap, Escape or the Skip button ends it at once; a failsafe removes it
    after 2.5 seconds whatever happens. While it plays, html.intro-playing holds the hero's entrance
    animations so they start as the curtain lifts. */
+
+// Scripts run: the 3D hero (hero-3d.js) shows its crest loader instead of the still photo underneath
+document.documentElement.classList.add("has-js");
+
 (() => {
   const KEY = "gardens-intro-seen";
   try {

@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent
 IMG = ROOT / "assets" / "img"
 OUT = ROOT / "assets" / "js" / "photos.js"
 PHOTO_TYPES = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
-SKIP = {"sponsors", "video"}  # folders that are not gallery albums
+SKIP = {"sponsors", "video", "hero3d"}  # folders that are not gallery albums (hero3d: the 3D hero on the homepage)
 
 
 def build():

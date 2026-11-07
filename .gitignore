@@ -14,3 +14,7 @@ videos/
 # Python
 __pycache__/
 *.pyc
+
+# Local tool files (Cloudflare Wrangler cache, Claude Code settings)
+.wrangler/
+.claude/

@@ -109,6 +109,93 @@
   <div class="wrap">
     <h2>Announcements</h2>
     <p class="section-lede">Notices from the club: match days, training, meetings and anything members need to know.</p>
+
+    <!-- AGM 2026: the notice as the club printed it, with the attendance registration beside it (below on phones).
+         Hidden by main.js after the meeting (data-until); entries go to the AGM2026 tab of the club's Google Sheet. -->
+    <article class="agm" id="agm-2026" data-until="2026-11-29" aria-labelledby="agm-title">
+      <div class="agm-notice">
+        <div class="agm-head">
+          <img class="agm-crest" src="assets/img/logo.png" alt="" width="126" height="142">
+          <div>
+            <p class="agm-club">Gardens Rugby Club</p>
+            <h3 class="agm-title" id="agm-title"><span class="agm-t1">Annual</span> <span class="agm-t2">General Meeting</span></h3>
+          </div>
+          <img class="agm-crest" src="assets/img/logo.png" alt="" width="126" height="142">
+        </div>
+        <p class="agm-date">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4M7 13h2M11 13h2M15 13h2M7 17h2M11 17h2"/></svg>
+          <time datetime="2026-11-29">Sunday 29 November 2026</time>
+        </p>
+        <ul class="agm-facts">
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pin"/></svg><span><span class="sr-only">Venue: </span>H.T. Gamble hall</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg><span><span class="sr-only">Time: </span><time datetime="2026-11-29T14:00">14:00</time></span></li>
+        </ul>
+        <p class="agm-text">Notice is hereby given of our Annual General Meeting (elective) taking place on Sunday 29 November 2026.</p>
+        <p class="agm-text">Registration for all members is R20.</p>
+        <div class="agm-box">
+          <p class="agm-box-h">Complete online registration form</p>
+          <p><a href="#agm-form">Fill in the registration form <span class="agm-beside">beside</span><span class="agm-below">below</span> this notice</a></p>
+        </div>
+        <p class="agm-verse">Rom 8:31 - “If God is for us, who can be against us”</p>
+      </div>
+
+      <div class="agm-reg">
+        <form class="join-form agm-form" id="agm-form" novalidate>
+          <div class="jf-head"><h3>Register to attend</h3></div>
+          <p class="jf-note">For members attending the Annual General Meeting on Sunday 29 November 2026 at 14:00. Fields marked <span class="req">*</span> are required.</p>
+
+          <fieldset>
+            <legend>Your details</legend>
+            <div class="jf-grid">
+              <label>First name <span class="req">*</span><input name="first_name" autocomplete="given-name" required maxlength="60"></label>
+              <label>Surname <span class="req">*</span><input name="surname" autocomplete="family-name" required maxlength="60"></label>
+              <label>Contact number <span class="req">*</span><input name="phone" type="tel" autocomplete="tel" required maxlength="20"></label>
+              <label>Email address <span class="req">*</span><input name="email" type="email" autocomplete="email" required maxlength="120"></label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Your address</legend>
+            <div class="jf-grid">
+              <label class="jf-wide">Street address <span class="req">*</span><input name="address_line" autocomplete="address-line1" required maxlength="120"></label>
+              <label>Suburb<input name="suburb" autocomplete="address-level3" maxlength="60"></label>
+              <label>Town <span class="req">*</span><input name="town" autocomplete="address-level2" required maxlength="60"></label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>I attend as <span class="req">*</span></legend>
+            <div class="jf-choice agm-roles">
+              <label><input type="radio" name="attending_as" value="Executive member" required> <span>Executive member</span></label>
+              <label><input type="radio" name="attending_as" value="Coaching team"> <span>Coaching team</span></label>
+              <label><input type="radio" name="attending_as" value="Player"> <span>Player</span></label>
+              <label><input type="radio" name="attending_as" value="Supporter"> <span>Supporter</span></label>
+              <label><input type="radio" name="attending_as" value="Sponsor"> <span>Sponsor</span></label>
+              <label><input type="radio" name="attending_as" value="Observer"> <span>Observer</span></label>
+            </div>
+          </fieldset>
+
+          <div class="agm-popia">
+            <p class="agm-popia-h">Your personal information is safe with us</p>
+            <p>Gardens Rugby Football Club complies with the Protection of Personal Information Act, 2013 (POPIA). We use the details on this form only to register your attendance at the 2026 Annual General Meeting and to keep the meeting’s attendance register. We will not sell, share or disclose your personal information to any third party, unless the law requires it. <a href="privacy.html">How we protect your details</a></p>
+          </div>
+
+          <label class="jf-hp" aria-hidden="true">Leave empty<input name="website" tabindex="-1" autocomplete="off"></label>
+          <label class="jf-check"><input type="checkbox" name="consent" required> <span>I agree that Gardens RFC may use these details to register my attendance at the AGM. <span class="req">*</span></span></label>
+
+          <p class="jf-msg" role="alert"></p>
+          <div class="jf-actions">
+            <button class="btn btn-red" type="submit">Register to attend</button>
+          </div>
+        </form>
+        <div class="join-done agm-done" id="agm-done" hidden tabindex="-1">
+          <h3>You are registered</h3>
+          <p>Thank you. See you at the Annual General Meeting on Sunday 29 November 2026 at 14:00 in the H.T. Gamble hall. Registration for all members is R20.</p>
+          <button class="btn btn-red" type="button" id="agm-again">Register another member</button>
+        </div>
+      </div>
+    </article>
+
     <ul class="ann-list" id="ann-list"></ul>
   </div>
 </section>

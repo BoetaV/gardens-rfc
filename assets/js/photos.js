@@ -1,5 +1,8 @@
 /* Made by build_gallery.py from the folders in assets/img. Do not edit by hand. */
 window.GARDENS_PHOTOS = {
+  "club": [
+    "crest.jpg"
+  ],
   "community": [],
   "dardensfamily": [
     "00.jpg",
